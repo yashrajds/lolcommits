@@ -28,6 +28,7 @@ export default function Home() {
   const [lastRunTime, setLastRunTime] = useState<string | null>(null);
   const [scheduler, setScheduler] = useState<SchedulerState | null>(null);
   const [stoppingSchedule, setStoppingSchedule] = useState(false);
+  const [actionNotice, setActionNotice] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
 
   const fetchDailyStats = useCallback(async () => {
     try {
@@ -52,7 +53,10 @@ export default function Home() {
     try {
       const response = await fetch("/api/schedule", { method: "POST" });
       const data = await response.json();
-      if (data.success) setScheduler(data.scheduler);
+      if (data.success) { setScheduler(data.scheduler); setActionNotice({ tone: "info", text: "Remaining commit windows have been cancelled for today." }); }
+      else setActionNotice({ tone: "error", text: data.error || "Unable to update the scheduler." });
+    } catch {
+      setActionNotice({ tone: "error", text: "The scheduler could not be reached. Please try again." });
     } finally { setStoppingSchedule(false); }
   };
 
@@ -61,7 +65,10 @@ export default function Home() {
     try {
       const response = await fetch("/api/schedule", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start" }) });
       const data = await response.json();
-      if (data.success) setScheduler(data.scheduler);
+      if (data.success) { setScheduler(data.scheduler); setActionNotice({ tone: "success", text: "Automation restarted with new future IST windows." }); }
+      else setActionNotice({ tone: "error", text: data.error || "Unable to restart the scheduler." });
+    } catch {
+      setActionNotice({ tone: "error", text: "The scheduler could not be reached. Please try again." });
     } finally { setStoppingSchedule(false); }
   };
 
@@ -185,7 +192,7 @@ export default function Home() {
 
   // Batch commit across all or random selected repositories
   const handleTriggerBatchCommit = async (filePath: string, customMessage?: string, randomize: boolean = false) => {
-    if (selectedRepoIds.size === 0) return;
+    if (selectedRepoIds.size === 0) { setActionNotice({ tone: "info", text: "Select at least one repository before running a pulse." }); return; }
 
     let selectedRepos = repos
       .filter((r) => selectedRepoIds.has(r.id))
@@ -223,11 +230,12 @@ export default function Home() {
         setTodayCommits((prev) => prev + (data.successCount || 0));
         setLastRunTime(new Date().toISOString());
         fetchDailyStats();
+        setActionNotice({ tone: "success", text: `${data.successCount || 0} commit${data.successCount === 1 ? "" : "s"} completed successfully.` });
       } else {
-        alert(data.error || "Batch commit failed.");
+        setActionNotice({ tone: "error", text: data.error || "Batch commit failed." });
       }
     } catch (err: any) {
-      alert("Network error executing batch commit: " + (err.message || String(err)));
+      setActionNotice({ tone: "error", text: "Network error executing batch commit: " + (err.message || String(err)) });
     } finally {
       setIsCommitting(false);
     }
@@ -261,7 +269,7 @@ export default function Home() {
         setLastRunTime(new Date().toISOString());
       }
     } catch (err: any) {
-      alert("Failed to commit: " + (err.message || String(err)));
+      setActionNotice({ tone: "error", text: "Failed to commit: " + (err.message || String(err)) });
     } finally {
       setIsCommitting(false);
     }
@@ -288,7 +296,7 @@ export default function Home() {
       />
 
       {activeTab === "dashboard" && (
-        <SchemaDashboard scheduler={scheduler} todayCommits={todayCommits} selectedCount={selectedRepoIds.size} totalRepos={repos.length} onStop={stopForToday} onStart={startForToday} onPulse={() => handleTriggerBatchCommit(".github-pulse.md", undefined, true)} onOpenConsole={() => setActiveTab("console")} onOpenRepositories={() => setActiveTab("repos")} stopping={stoppingSchedule} isCommitting={isCommitting} />
+        <SchemaDashboard scheduler={scheduler} todayCommits={todayCommits} selectedCount={selectedRepoIds.size} totalRepos={repos.length} onStop={stopForToday} onStart={startForToday} onPulse={() => handleTriggerBatchCommit(".github-pulse.md", undefined, true)} onOpenConsole={() => setActiveTab("console")} onOpenRepositories={() => setActiveTab("repos")} stopping={stoppingSchedule} isCommitting={isCommitting} notice={actionNotice} />
       )}
 
       {activeTab === "console" && <CommitConsole onTriggerBatchCommit={handleTriggerBatchCommit} isCommitting={isCommitting} selectedCount={selectedRepoIds.size} recentResults={recentResults} lastRunTime={lastRunTime} />}

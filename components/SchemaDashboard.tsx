@@ -16,11 +16,12 @@ type Props = {
   onOpenRepositories: () => void;
   stopping: boolean;
   isCommitting: boolean;
+  notice: { tone: "success" | "error" | "info"; text: string } | null;
 };
 
 const time = (value: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
 
-export function SchemaDashboard({ scheduler, todayCommits, selectedCount, totalRepos, onStop, onStart, onPulse, onOpenConsole, onOpenRepositories, stopping, isCommitting }: Props) {
+export function SchemaDashboard({ scheduler, todayCommits, selectedCount, totalRepos, onStop, onStart, onPulse, onOpenConsole, onOpenRepositories, stopping, isCommitting, notice }: Props) {
   const schedule = scheduler?.schedule.filter((item) => item.status === "upcoming") || [];
   return <section className="schema-canvas">
     <div className="canvas-toolbar">
@@ -28,6 +29,7 @@ export function SchemaDashboard({ scheduler, todayCommits, selectedCount, totalR
       <div className="toolbar-actions"><span className={scheduler?.enabled ? "state-chip online" : "state-chip offline"}><Radio size={13} /> {scheduler?.enabled ? "Scheduler online" : "Scheduler paused"}</span><button className="schema-button" onClick={onOpenConsole}><Rows3 size={15} /> Console</button><button className="schema-button primary" onClick={onPulse} disabled={isCommitting || selectedCount === 0}><Play size={15} /> {isCommitting ? "Running…" : "Run pulse"}</button></div>
     </div>
 
+    {notice && <div className={`operation-notice ${notice.tone}`} role="status">{notice.text}</div>}
     <div className="schema-board">
       <svg className="relation-lines" viewBox="0 0 1000 650" preserveAspectRatio="none" aria-hidden="true"><path d="M255 145H406V280H521"/><path d="M250 455H395V370H521"/><path d="M662 280H800V145"/><path d="M660 370H802V470"/><circle cx="406" cy="280" r="3"/><circle cx="395" cy="370" r="3"/><circle cx="800" cy="145" r="3"/><circle cx="802" cy="470" r="3"/></svg>
 

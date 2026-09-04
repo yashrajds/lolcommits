@@ -6,6 +6,7 @@ export type ScheduledCommit = { id: string; at: string; status: "upcoming" | "co
 export type SchedulerState = { date: string; enabled: boolean; stoppedDate?: string; schedule: ScheduledCommit[]; updatedAt: string };
 
 const FILE = () => path.join(process.cwd(), "stats", "scheduler-state.json");
+let memoryScheduler: SchedulerState | null = null;
 const count = () => Math.max(1, Math.min(12, Number(process.env.DAILY_SCHEDULE_COUNT || 3)));
 const windowStart = () => Number(process.env.SCHEDULE_START_HOUR_IST || 9);
 const windowEnd = () => Number(process.env.SCHEDULE_END_HOUR_IST || 21);
@@ -24,9 +25,10 @@ function randomSchedule(date: string): ScheduledCommit[] {
 
 export function getSchedulerState(): SchedulerState {
   const today = istDate();
+  if (memoryScheduler?.date === today) return memoryScheduler;
   try {
     const saved = JSON.parse(fs.readFileSync(FILE(), "utf8")) as SchedulerState;
-    if (saved.date === today) return saved;
+    if (saved.date === today) return (memoryScheduler = saved);
   } catch {}
   const state: SchedulerState = { date: today, enabled: true, schedule: randomSchedule(today), updatedAt: new Date().toISOString() };
   saveSchedulerState(state);
@@ -34,8 +36,14 @@ export function getSchedulerState(): SchedulerState {
 }
 
 export function saveSchedulerState(state: SchedulerState) {
-  fs.mkdirSync(path.dirname(FILE()), { recursive: true });
-  fs.writeFileSync(FILE(), JSON.stringify({ ...state, updatedAt: new Date().toISOString() }, null, 2));
+  memoryScheduler = { ...state, updatedAt: new Date().toISOString() };
+  try {
+    fs.mkdirSync(path.dirname(FILE()), { recursive: true });
+    fs.writeFileSync(FILE(), JSON.stringify(memoryScheduler, null, 2));
+  } catch {
+    // A hosted serverless deployment cannot write inside /var/task. The
+    // in-memory state keeps controls responsive until durable storage is set.
+  }
 }
 
 export function stopForToday() {
