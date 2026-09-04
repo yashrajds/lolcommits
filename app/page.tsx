@@ -7,10 +7,10 @@ import { RepoManager } from "@/components/RepoManager";
 import { CommitConsole } from "@/components/CommitConsole";
 import { VercelDeployGuide } from "@/components/VercelDeployGuide";
 import { TokenConfigModal } from "@/components/TokenConfigModal";
-import { AutomationOverview } from "@/components/AutomationOverview";
+import { SchemaDashboard } from "@/components/SchemaDashboard";
 import type { SchedulerState } from "@/lib/scheduler";
 import { GitHubUser, GitHubRepo, CommitResult } from "@/lib/github";
-import { Sparkles, Terminal, FolderGit2, Rocket, Key } from "lucide-react";
+import { Database, FolderGit2, Key, LayoutDashboard, Rocket, Rows3 } from "lucide-react";
 
 export default function Home() {
   const [token, setToken] = useState<string>("");
@@ -21,7 +21,7 @@ export default function Home() {
   const [loading, setLoading] = useState<boolean>(false);
   const [isCommitting, setIsCommitting] = useState<boolean>(false);
   const [isTokenModalOpen, setIsTokenModalOpen] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "repos" | "deploy">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "repos" | "console" | "deploy">("dashboard");
   const [recentResults, setRecentResults] = useState<CommitResult[]>([]);
   const [sessionCommits, setSessionCommits] = useState<number>(0);
   const [todayCommits, setTodayCommits] = useState<number>(3);
@@ -268,7 +268,18 @@ export default function Home() {
   };
 
   return (
-    <div className="container">
+    <div className="workspace-shell">
+      <aside className="workspace-rail">
+        <button className="rail-logo" onClick={() => setActiveTab("dashboard")} title="GitPulse control plane"><Database size={19} /></button>
+        <nav className="rail-nav" aria-label="Workspace navigation">
+          <button className={activeTab === "dashboard" ? "rail-button active" : "rail-button"} onClick={() => setActiveTab("dashboard")} title="Control plane"><LayoutDashboard size={18} /></button>
+          <button className={activeTab === "console" ? "rail-button active" : "rail-button"} onClick={() => setActiveTab("console")} title="Commit console"><Rows3 size={18} /></button>
+          <button className={activeTab === "repos" ? "rail-button active" : "rail-button"} onClick={() => setActiveTab("repos")} title="Repositories"><FolderGit2 size={18} /></button>
+          <button className={activeTab === "deploy" ? "rail-button active" : "rail-button"} onClick={() => setActiveTab("deploy")} title="Deployment guide"><Rocket size={18} /></button>
+        </nav>
+        <button className="rail-button rail-config" onClick={() => setIsTokenModalOpen(true)} title="GitHub token settings"><Key size={18} /></button>
+      </aside>
+      <main className="workspace-main">
       <Navbar
         user={user}
         loading={loading}
@@ -276,68 +287,11 @@ export default function Home() {
         onRefresh={() => fetchRepositories(token || undefined)}
       />
 
-      <header className="command-header">
-        <div><div className="hero-pill"><Sparkles size={14} /><span>IST AUTOMATION CONTROL</span></div><h1>Commit operations,<br /><span>under control.</span></h1><p>Plan randomized activity windows, monitor today’s progress, and retain command even after you close the dashboard.</p></div>
-        <div className="command-orb"><div className="orb-core"><span>{scheduler?.enabled ? "LIVE" : "PAUSED"}</span><small>scheduler</small></div><i /><i /><i /></div>
-      </header>
-
-      {/* Overview Stats & Heatmap */}
-      <StatsOverview
-        totalRepos={repos.length}
-        selectedCount={selectedRepoIds.size}
-        sessionCommits={sessionCommits}
-        todayCommits={todayCommits}
-        lastSyncTime={lastRunTime}
-      />
-
-      <AutomationOverview scheduler={scheduler} todayCommits={todayCommits} onStop={stopForToday} onStart={startForToday} stopping={stoppingSchedule} />
-
-      {/* Tabs */}
-      <div className="tabs-container">
-        <button
-          id="tab-dashboard-btn"
-          className={`tab-button ${activeTab === "dashboard" ? "active" : ""}`}
-          onClick={() => setActiveTab("dashboard")}
-        >
-          <Terminal size={16} /> Console & Terminal
-        </button>
-        <button
-          id="tab-repos-btn"
-          className={`tab-button ${activeTab === "repos" ? "active" : ""}`}
-          onClick={() => setActiveTab("repos")}
-        >
-          <FolderGit2 size={16} /> Repositories ({repos.length})
-        </button>
-        <button
-          id="tab-deploy-btn"
-          className={`tab-button ${activeTab === "deploy" ? "active" : ""}`}
-          onClick={() => setActiveTab("deploy")}
-        >
-          <Rocket size={16} /> Vercel Deploy Guide
-        </button>
-      </div>
-
-      {/* Tab Panels */}
       {activeTab === "dashboard" && (
-        <>
-          <CommitConsole
-            onTriggerBatchCommit={handleTriggerBatchCommit}
-            isCommitting={isCommitting}
-            selectedCount={selectedRepoIds.size}
-            recentResults={recentResults}
-            lastRunTime={lastRunTime}
-          />
-          <RepoManager
-            repos={repos}
-            selectedRepoIds={selectedRepoIds}
-            onToggleSelect={handleToggleSelect}
-            onSelectAll={handleSelectAll}
-            onDeselectAll={handleDeselectAll}
-            onSingleCommit={handleSingleCommit}
-            isCommitting={isCommitting}
-          />
-        </>
+        <SchemaDashboard scheduler={scheduler} todayCommits={todayCommits} selectedCount={selectedRepoIds.size} totalRepos={repos.length} onStop={stopForToday} onStart={startForToday} onPulse={() => handleTriggerBatchCommit(".github-pulse.md", undefined, true)} onOpenConsole={() => setActiveTab("console")} onOpenRepositories={() => setActiveTab("repos")} stopping={stoppingSchedule} isCommitting={isCommitting} />
       )}
+
+      {activeTab === "console" && <CommitConsole onTriggerBatchCommit={handleTriggerBatchCommit} isCommitting={isCommitting} selectedCount={selectedRepoIds.size} recentResults={recentResults} lastRunTime={lastRunTime} />}
 
       {activeTab === "repos" && (
         <RepoManager
@@ -361,6 +315,7 @@ export default function Home() {
         currentToken={token}
         hasEnvToken={hasEnvToken}
       />
+      </main>
     </div>
   );
 }
