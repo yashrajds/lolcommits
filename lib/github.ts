@@ -72,6 +72,16 @@ export function getRandomCommitMessage(): string {
 }
 
 /**
+ * Shuffles an array and picks a random subset between minCount and maxCount.
+ */
+export function pickRandomSubset<T>(items: T[], minCount: number = 1, maxCount: number = 3): T[] {
+  if (!items || items.length === 0) return [];
+  const count = Math.min(items.length, Math.max(minCount, Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount));
+  const shuffled = [...items].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+}
+
+/**
  * Validates token and returns authenticated GitHub user info.
  */
 export async function getAuthenticatedUser(token: string): Promise<GitHubUser> {

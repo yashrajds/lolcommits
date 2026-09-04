@@ -5,6 +5,7 @@ import {
   listUserRepositories,
   getRandomCommitMessage,
 } from "@/lib/github";
+import { recordActivity } from "@/lib/activity";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Max execution timeout for Vercel functions
@@ -87,13 +88,20 @@ async function handleCronTrigger(req: NextRequest) {
       );
     }
 
-    // 6. Handle batch sizing to prevent Vercel Serverless Function timeout
-    // If COMMIT_BATCH_SIZE is set (e.g. 5 or 10), pick a random or rotating slice
+    // 6. Handle random repository selection or batch sizing
+    const isRandomMode = process.env.RANDOMIZE_REPOS !== "false" || url.searchParams.get("random") === "true";
+    const minRepos = parseInt(process.env.MIN_RANDOM_REPOS || "1", 10);
+    const maxRepos = parseInt(process.env.MAX_RANDOM_REPOS || "3", 10);
+
     const batchSizeEnv = process.env.COMMIT_BATCH_SIZE;
-    if (batchSizeEnv && batchSizeEnv.toLowerCase() !== "all") {
+    if (isRandomMode) {
+      // Pick a randomized subset of repos (e.g. 1-3 random repositories)
+      const count = Math.min(targetRepos.length, Math.max(minRepos, Math.floor(Math.random() * (maxRepos - minRepos + 1)) + minRepos));
+      const shuffled = [...targetRepos].sort(() => 0.5 - Math.random());
+      targetRepos = shuffled.slice(0, count);
+    } else if (batchSizeEnv && batchSizeEnv.toLowerCase() !== "all") {
       const batchSize = parseInt(batchSizeEnv, 10);
       if (!isNaN(batchSize) && batchSize > 0 && batchSize < targetRepos.length) {
-        // Shuffle and take batchSize repos
         const shuffled = [...targetRepos].sort(() => 0.5 - Math.random());
         targetRepos = shuffled.slice(0, batchSize);
       }
@@ -119,6 +127,7 @@ async function handleCronTrigger(req: NextRequest) {
 
     const successCount = results.filter((r) => r.success).length;
     const failureCount = results.filter((r) => !r.success).length;
+    recordActivity(results.filter((r) => r.success).map((r) => ({ repo: r.repo, sha: r.sha, time: new Date().toISOString() })));
     const totalDurationMs = Date.now() - startTime;
 
     return NextResponse.json({

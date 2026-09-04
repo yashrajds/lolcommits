@@ -5,7 +5,7 @@ import { Play, Terminal, ExternalLink, ShieldCheck, RefreshCw, FileText } from "
 import { CommitResult } from "@/lib/github";
 
 interface CommitConsoleProps {
-  onTriggerBatchCommit: (filePath: string, customMessage?: string) => Promise<void>;
+  onTriggerBatchCommit: (filePath: string, customMessage?: string, randomize?: boolean) => Promise<void>;
   isCommitting: boolean;
   selectedCount: number;
   recentResults: CommitResult[];
@@ -22,8 +22,8 @@ export const CommitConsole: React.FC<CommitConsoleProps> = ({
   const [filePath, setFilePath] = useState(".github-pulse.md");
   const [customMessage, setCustomMessage] = useState("");
 
-  const handleRun = () => {
-    onTriggerBatchCommit(filePath.trim() || ".github-pulse.md", customMessage.trim() || undefined);
+  const handleRun = (randomize: boolean = false) => {
+    onTriggerBatchCommit(filePath.trim() || ".github-pulse.md", customMessage.trim() || undefined, randomize);
   };
 
   return (
@@ -35,15 +35,24 @@ export const CommitConsole: React.FC<CommitConsoleProps> = ({
             <span>Live Commit Terminal & Controls</span>
           </h2>
           <p className="card-description">
-            Trigger a manual batch run across selected repositories or inspect automated Vercel Cron executions.
+            Trigger automated pulse commits across all or randomized subsets of your repositories.
           </p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <button
+            id="trigger-random-pulse-btn"
+            className="btn btn-secondary"
+            onClick={() => handleRun(true)}
+            disabled={isCommitting || selectedCount === 0}
+            title="Pick 1-3 random repositories from your active selection"
+          >
+            🎲 Random 1-3 Repos
+          </button>
           <button
             id="trigger-batch-pulse-btn"
             className="btn btn-primary"
-            onClick={handleRun}
+            onClick={() => handleRun(false)}
             disabled={isCommitting || selectedCount === 0}
             title={selectedCount === 0 ? "Select at least 1 repository first" : "Commit to all selected repositories"}
           >
@@ -55,7 +64,7 @@ export const CommitConsole: React.FC<CommitConsoleProps> = ({
             ) : (
               <>
                 <Play size={16} fill="currentColor" />
-                Trigger Pulse ({selectedCount})
+                Pulse All ({selectedCount})
               </>
             )}
           </button>

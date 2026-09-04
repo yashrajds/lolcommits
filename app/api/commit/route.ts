@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { batchCommitPulse, getAuthenticatedUser } from "@/lib/github";
+import { recordActivity } from "@/lib/activity";
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
 
     const successCount = results.filter((r) => r.success).length;
     const failureCount = results.filter((r) => !r.success).length;
+    recordActivity(results.filter((r) => r.success).map((r) => ({ repo: r.repo, sha: r.sha, time: new Date().toISOString() })));
 
     return NextResponse.json({
       success: true,

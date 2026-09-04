@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "scheduler": "node scripts/pulse-daemon.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

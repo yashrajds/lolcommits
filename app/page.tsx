@@ -7,6 +7,8 @@ import { RepoManager } from "@/components/RepoManager";
 import { CommitConsole } from "@/components/CommitConsole";
 import { VercelDeployGuide } from "@/components/VercelDeployGuide";
 import { TokenConfigModal } from "@/components/TokenConfigModal";
+import { AutomationOverview } from "@/components/AutomationOverview";
+import type { SchedulerState } from "@/lib/scheduler";
 import { GitHubUser, GitHubRepo, CommitResult } from "@/lib/github";
 import { Sparkles, Terminal, FolderGit2, Rocket, Key } from "lucide-react";
 
@@ -22,7 +24,37 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "repos" | "deploy">("dashboard");
   const [recentResults, setRecentResults] = useState<CommitResult[]>([]);
   const [sessionCommits, setSessionCommits] = useState<number>(0);
+  const [todayCommits, setTodayCommits] = useState<number>(3);
   const [lastRunTime, setLastRunTime] = useState<string | null>(null);
+  const [scheduler, setScheduler] = useState<SchedulerState | null>(null);
+  const [stoppingSchedule, setStoppingSchedule] = useState(false);
+
+  const fetchDailyStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/stats");
+      const data = await res.json();
+      if (data.success && typeof data.todayCount === "number") {
+        setTodayCommits(data.todayCount);
+      }
+    } catch {}
+  }, []);
+
+  const fetchSchedule = useCallback(async () => {
+    try {
+      const response = await fetch("/api/schedule");
+      const data = await response.json();
+      if (data.success) { setScheduler(data.scheduler); setTodayCommits(data.todayCount); }
+    } catch {}
+  }, []);
+
+  const stopForToday = async () => {
+    setStoppingSchedule(true);
+    try {
+      const response = await fetch("/api/schedule", { method: "POST" });
+      const data = await response.json();
+      if (data.success) setScheduler(data.scheduler);
+    } finally { setStoppingSchedule(false); }
+  };
 
   // Authenticate user & check token
   const verifyAndLoadUser = useCallback(async (tokenToVerify?: string) => {
@@ -89,6 +121,8 @@ export default function Home() {
       setToken(savedToken);
     }
 
+    fetchDailyStats();
+    fetchSchedule();
     verifyAndLoadUser(savedToken || undefined).then((verifiedUser) => {
       if (verifiedUser) {
         fetchRepositories(savedToken || undefined);
@@ -97,7 +131,9 @@ export default function Home() {
         setIsTokenModalOpen(true);
       }
     });
-  }, [verifyAndLoadUser, fetchRepositories]);
+    const timer = window.setInterval(fetchSchedule, 30000);
+    return () => window.clearInterval(timer);
+  }, [verifyAndLoadUser, fetchRepositories, fetchDailyStats, fetchSchedule]);
 
   // Handle Token Save
   const handleSaveToken = async (newToken: string): Promise<boolean> => {
@@ -138,17 +174,24 @@ export default function Home() {
     setSelectedRepoIds(new Set());
   };
 
-  // Batch commit across all selected repositories
-  const handleTriggerBatchCommit = async (filePath: string, customMessage?: string) => {
+  // Batch commit across all or random selected repositories
+  const handleTriggerBatchCommit = async (filePath: string, customMessage?: string, randomize: boolean = false) => {
     if (selectedRepoIds.size === 0) return;
 
-    const selectedRepos = repos
+    let selectedRepos = repos
       .filter((r) => selectedRepoIds.has(r.id))
       .map((r) => ({
         owner: r.owner.login,
         repo: r.name,
         branch: r.default_branch || "main",
       }));
+
+    if (randomize) {
+      const min = 1;
+      const max = Math.min(3, selectedRepos.length);
+      const count = Math.floor(Math.random() * (max - min + 1)) + min;
+      selectedRepos = [...selectedRepos].sort(() => 0.5 - Math.random()).slice(0, count);
+    }
 
     setIsCommitting(true);
     try {
@@ -168,7 +211,9 @@ export default function Home() {
       if (res.ok && Array.isArray(data.results)) {
         setRecentResults((prev) => [...data.results, ...prev]);
         setSessionCommits((prev) => prev + (data.successCount || 0));
+        setTodayCommits((prev) => prev + (data.successCount || 0));
         setLastRunTime(new Date().toISOString());
+        fetchDailyStats();
       } else {
         alert(data.error || "Batch commit failed.");
       }
@@ -242,8 +287,11 @@ export default function Home() {
         totalRepos={repos.length}
         selectedCount={selectedRepoIds.size}
         sessionCommits={sessionCommits}
+        todayCommits={todayCommits}
         lastSyncTime={lastRunTime}
       />
+
+      <AutomationOverview scheduler={scheduler} todayCommits={todayCommits} onStop={stopForToday} stopping={stoppingSchedule} />
 
       {/* Tabs */}
       <div className="tabs-container">

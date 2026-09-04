@@ -78,6 +78,18 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### Keep scheduling active after the browser closes
+
+GitPulse now has a separate IST background worker. In a second terminal, start it once:
+
+```bash
+npm run scheduler
+```
+
+It creates a fresh set of random commit windows for each IST day and reads the **Stop for Today** control immediately. Keep this worker alive with your usual process manager (PM2, Windows Task Scheduler, Docker restart policy, or systemd) so it survives sign-out and restarts. The dashboard itself is not involved in running scheduled work.
+
+Set `SITE_PASSWORD` before opening the dashboard. The supplied local setup uses the password provided during configuration; use a unique environment variable value when deploying.
+
 ---
 
 ## ☁️ Deploying to Vercel
