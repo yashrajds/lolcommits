@@ -44,3 +44,16 @@ export function stopForToday() {
   saveSchedulerState(next);
   return next;
 }
+
+export function startForToday() {
+  const today = istDate();
+  const state = getSchedulerState();
+  const currentMinutes = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date()).replace(":", ""));
+  const schedule = randomSchedule(today).map((item) => {
+    const [hours, minutes] = item.at.slice(11, 16).split(":").map(Number);
+    return hours * 100 + minutes <= currentMinutes ? { ...item, status: "skipped" as const } : item;
+  });
+  const next: SchedulerState = { ...state, date: today, enabled: true, stoppedDate: undefined, schedule };
+  saveSchedulerState(next);
+  return next;
+}

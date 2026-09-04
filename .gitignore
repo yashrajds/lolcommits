@@ -30,3 +30,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Runtime scheduler state (created locally by the background worker)
+stats/scheduler-state.json

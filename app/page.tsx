@@ -56,6 +56,15 @@ export default function Home() {
     } finally { setStoppingSchedule(false); }
   };
 
+  const startForToday = async () => {
+    setStoppingSchedule(true);
+    try {
+      const response = await fetch("/api/schedule", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start" }) });
+      const data = await response.json();
+      if (data.success) setScheduler(data.scheduler);
+    } finally { setStoppingSchedule(false); }
+  };
+
   // Authenticate user & check token
   const verifyAndLoadUser = useCallback(async (tokenToVerify?: string) => {
     setLoading(true);
@@ -267,19 +276,9 @@ export default function Home() {
         onRefresh={() => fetchRepositories(token || undefined)}
       />
 
-      {/* Hero Header */}
-      <header className="hero-banner">
-        <div className="hero-pill">
-          <Sparkles size={14} />
-          <span>Vercel Cron Automation Ready</span>
-        </div>
-        <h1 className="hero-title">
-          Keep Your GitHub Repositories <span className="gradient-text">Alive & Active</span>
-        </h1>
-        <p className="hero-subtitle">
-          Automated, non-destructive heartbeat commits scheduled via Vercel Crons.
-          Safe updates to your default branches that keep your activity streak moving forward.
-        </p>
+      <header className="command-header">
+        <div><div className="hero-pill"><Sparkles size={14} /><span>IST AUTOMATION CONTROL</span></div><h1>Commit operations,<br /><span>under control.</span></h1><p>Plan randomized activity windows, monitor today’s progress, and retain command even after you close the dashboard.</p></div>
+        <div className="command-orb"><div className="orb-core"><span>{scheduler?.enabled ? "LIVE" : "PAUSED"}</span><small>scheduler</small></div><i /><i /><i /></div>
       </header>
 
       {/* Overview Stats & Heatmap */}
@@ -291,7 +290,7 @@ export default function Home() {
         lastSyncTime={lastRunTime}
       />
 
-      <AutomationOverview scheduler={scheduler} todayCommits={todayCommits} onStop={stopForToday} stopping={stoppingSchedule} />
+      <AutomationOverview scheduler={scheduler} todayCommits={todayCommits} onStop={stopForToday} onStart={startForToday} stopping={stoppingSchedule} />
 
       {/* Tabs */}
       <div className="tabs-container">
