@@ -1,7 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
-import { Key, ExternalLink, X, ShieldAlert, CheckCircle2, Lock } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import {
+  Key,
+  ExternalLink,
+  X,
+  ShieldAlert,
+  CheckCircle2,
+  Lock,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 
 interface TokenConfigModalProps {
   isOpen: boolean;
@@ -19,150 +28,184 @@ export const TokenConfigModal: React.FC<TokenConfigModalProps> = ({
   hasEnvToken,
 }) => {
   const [inputToken, setInputToken] = useState(currentToken);
+  const [showToken, setShowToken] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ text: string; error?: boolean } | null>(null);
+  const [status, setStatus] = useState<{
+    text: string;
+    error?: boolean;
+  } | null>(null);
+
+  // Sync input when currentToken changes (e.g. from external state)
+  useEffect(() => {
+    setInputToken(currentToken);
+  }, [currentToken]);
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputToken.trim()) {
-      setStatusMessage({ text: "Please enter a valid GitHub token.", error: true });
+    const trimmed = inputToken.trim();
+    if (!trimmed) {
+      setStatus({ text: "Please enter a valid GitHub token.", error: true });
       return;
     }
 
     setTesting(true);
-    setStatusMessage(null);
-    const success = await onSaveToken(inputToken.trim());
+    setStatus(null);
+
+    const success = await onSaveToken(trimmed);
     setTesting(false);
 
     if (success) {
-      setStatusMessage({ text: "Token verified and connected successfully!" });
-      setTimeout(() => {
-        onClose();
-      }, 1000);
+      setStatus({ text: "Token verified and connected successfully!" });
+      setTimeout(onClose, 1100);
     } else {
-      setStatusMessage({
-        text: "Failed to authenticate with GitHub. Check your token permissions.",
+      setStatus({
+        text: "Authentication failed. Check your token permissions (repo scope required).",
         error: true,
       });
     }
   };
 
+  // Close when clicking backdrop
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.75)",
-        backdropFilter: "blur(8px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-        padding: "16px",
-      }}
-    >
-      <div
-        className="card"
-        style={{
-          width: "100%",
-          maxWidth: "520px",
-          position: "relative",
-          animation: "fadeIn 0.2s ease-out",
-        }}
-      >
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: "16px",
-            right: "16px",
-            background: "transparent",
-            border: "none",
-            color: "var(--text-muted)",
-            cursor: "pointer",
-          }}
-        >
-          <X size={20} />
+    <div className="modal-backdrop" onClick={handleBackdropClick}>
+      <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        {/* Close */}
+        <button className="modal-close" onClick={onClose} aria-label="Close modal">
+          <X size={16} />
         </button>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+        {/* Header */}
+        <div className="modal-header">
           <div
+            className="modal-icon"
             style={{
-              padding: "10px",
-              borderRadius: "var(--radius-sm)",
-              background: "rgba(16, 185, 129, 0.15)",
-              color: "var(--accent-emerald)",
+              background: "rgba(16, 185, 129, 0.12)",
+              border: "1px solid rgba(16, 185, 129, 0.25)",
+              color: "var(--emerald)",
             }}
           >
             <Key size={20} />
           </div>
           <div>
-            <h3 style={{ fontSize: "1.15rem", fontWeight: 700 }}>GitHub Connection</h3>
-            <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
+            <div id="modal-title" className="modal-title">
+              GitHub Connection
+            </div>
+            <div className="modal-subtitle">
               Provide a Personal Access Token to commit safely across your repositories.
-            </p>
+            </div>
           </div>
         </div>
 
+        {/* Env token notice */}
         {hasEnvToken && (
           <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "10px 14px",
-              borderRadius: "var(--radius-sm)",
-              background: "rgba(6, 182, 212, 0.1)",
-              border: "1px solid rgba(6, 182, 212, 0.25)",
-              marginBottom: "16px",
-              fontSize: "0.82rem",
-              color: "var(--accent-cyan)",
-            }}
+            className="notice notice-info"
+            style={{ marginBottom: 16 }}
           >
-            <Lock size={16} />
-            <span>Found <code>GITHUB_TOKEN</code> configured in environment variables.</span>
+            <Lock size={14} />
+            <span>
+              Found <code>GITHUB_TOKEN</code> configured in environment variables.
+            </span>
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
+          {/* Token input */}
           <div className="input-group">
-            <label className="input-label" htmlFor="github-token-input">
+            <label className="label" htmlFor="github-token-input">
               Personal Access Token (Classic or Fine-Grained)
             </label>
-            <input
-              id="github-token-input"
-              type="password"
-              className="text-input mono"
-              placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              value={inputToken}
-              onChange={(e) => setInputToken(e.target.value)}
-              autoFocus
-            />
+            <div className="input-wrapper icon-right">
+              <input
+                id="github-token-input"
+                type={showToken ? "text" : "password"}
+                className="input input-mono"
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                value={inputToken}
+                onChange={(e) => {
+                  setInputToken(e.target.value);
+                  setStatus(null);
+                }}
+                autoFocus
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                className="input-icon-right"
+                onClick={() => setShowToken((v) => !v)}
+                tabIndex={-1}
+                title={showToken ? "Hide token" : "Show token"}
+              >
+                {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
           </div>
 
+          {/* Permissions info */}
           <div
             style={{
-              padding: "12px",
-              borderRadius: "var(--radius-sm)",
-              background: "rgba(255, 255, 255, 0.03)",
-              border: "1px solid var(--border-subtle)",
-              marginBottom: "18px",
+              padding: "12px 14px",
+              borderRadius: "var(--r-md)",
+              background: "rgba(255,255,255,0.025)",
+              border: "1px solid var(--border-faint)",
+              marginBottom: 16,
               fontSize: "0.8rem",
-              lineHeight: "1.5",
-              color: "var(--text-secondary)",
+              lineHeight: 1.55,
+              color: "var(--text-2)",
             }}
           >
-            <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "4px" }}>
-              Required Token Permissions:
+            <div
+              style={{
+                fontWeight: 700,
+                color: "var(--text-1)",
+                marginBottom: 6,
+                fontSize: "0.82rem",
+              }}
+            >
+              Required Permissions
             </div>
-            <ul style={{ paddingLeft: "18px", marginBottom: "8px" }}>
-              <li><strong>Classic Token</strong>: Check the <code>repo</code> scope.</li>
-              <li><strong>Fine-Grained Token</strong>: Grant <strong>Contents: Read and write</strong> on All Repositories.</li>
+            <ul
+              style={{
+                paddingLeft: 16,
+                marginBottom: 10,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+              }}
+            >
+              <li>
+                <strong>Classic Token</strong> — check the{" "}
+                <code
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    padding: "1px 4px",
+                    borderRadius: 3,
+                  }}
+                >
+                  repo
+                </code>{" "}
+                scope.
+              </li>
+              <li>
+                <strong>Fine-Grained Token</strong> — grant{" "}
+                <strong>Contents: Read and write</strong> on all repositories.
+              </li>
             </ul>
             <a
               href="https://github.com/settings/tokens/new?scopes=repo&description=GitPulse-Vercel-AutoCommit"
@@ -171,37 +214,29 @@ export const TokenConfigModal: React.FC<TokenConfigModalProps> = ({
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "4px",
-                color: "var(--accent-emerald)",
-                textDecoration: "none",
+                gap: 4,
+                color: "var(--emerald)",
                 fontWeight: 600,
+                fontSize: "0.78rem",
               }}
             >
-              Generate Token on GitHub <ExternalLink size={12} />
+              Generate Token on GitHub <ExternalLink size={11} />
             </a>
           </div>
 
-          {statusMessage && (
+          {/* Status message */}
+          {status && (
             <div
-              style={{
-                padding: "10px",
-                borderRadius: "var(--radius-sm)",
-                marginBottom: "16px",
-                fontSize: "0.82rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                background: statusMessage.error ? "rgba(244, 63, 94, 0.15)" : "rgba(16, 185, 129, 0.15)",
-                color: statusMessage.error ? "var(--accent-rose)" : "var(--accent-emerald)",
-                border: `1px solid ${statusMessage.error ? "rgba(244, 63, 94, 0.3)" : "rgba(16, 185, 129, 0.3)"}`,
-              }}
+              className={`notice ${status.error ? "notice-error" : "notice-success"}`}
+              style={{ marginBottom: 14 }}
             >
-              {statusMessage.error ? <ShieldAlert size={16} /> : <CheckCircle2 size={16} />}
-              {statusMessage.text}
+              {status.error ? <ShieldAlert size={15} /> : <CheckCircle2 size={15} />}
+              {status.text}
             </div>
           )}
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+          {/* Actions */}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
             <button
               type="button"
               className="btn btn-secondary"
@@ -216,7 +251,7 @@ export const TokenConfigModal: React.FC<TokenConfigModalProps> = ({
               className="btn btn-primary"
               disabled={testing || !inputToken.trim()}
             >
-              {testing ? "Verifying..." : "Connect & Save"}
+              {testing ? "Verifying…" : "Connect & Save"}
             </button>
           </div>
         </form>

@@ -6,162 +6,259 @@ import {
   Copy,
   Check,
   ExternalLink,
-  Shield,
   Clock,
   Key,
   Globe,
   HelpCircle,
 } from "lucide-react";
 
-export const VercelDeployGuide: React.FC = () => {
-  const [copiedEnv, setCopiedEnv] = useState(false);
-  const [copiedCurl, setCopiedCurl] = useState(false);
-
-  const envSample = `GITHUB_TOKEN=ghp_yourGitHubPersonalAccessToken
+const ENV_SAMPLE = `GITHUB_TOKEN=ghp_yourGitHubPersonalAccessToken
 CRON_SECRET=my_custom_secret_key_998877
 TARGET_FILE=.github-pulse.md
 COMMIT_BATCH_SIZE=10
 EXCLUDE_FORKS=true`;
 
-  const curlSample = `curl -X POST https://your-app.vercel.app/api/cron \\
+const CURL_SAMPLE = `curl -X POST https://your-app.vercel.app/api/cron \\
   -H "Authorization: Bearer my_custom_secret_key_998877"`;
 
-  const copyToClipboard = (text: string, setFn: (val: boolean) => void) => {
-    navigator.clipboard.writeText(text);
-    setFn(true);
-    setTimeout(() => setFn(false), 2000);
+interface CopyBtnProps {
+  text: string;
+}
+function CopyBtn({ text }: CopyBtnProps) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
+  return (
+    <button
+      className={`code-copy-btn ${copied ? "copied" : ""}`}
+      onClick={handleCopy}
+      title="Copy to clipboard"
+    >
+      {copied ? <Check size={12} /> : <Copy size={12} />}
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
+}
 
+export const VercelDeployGuide: React.FC = () => {
   return (
     <div className="card">
       <div className="card-header">
         <div>
-          <h2 className="card-title">
-            <Rocket size={20} color="var(--accent-purple)" />
-            <span>Vercel Deployment & Automation Guide</span>
-          </h2>
-          <p className="card-description">
-            Complete step-by-step walkthrough to deploy GitPulse on Vercel and activate automated scheduled commits.
+          <div className="card-title">
+            <Rocket size={17} color="var(--violet)" />
+            Vercel Deployment Guide
+          </div>
+          <p className="card-desc">
+            Step-by-step walkthrough to deploy GitPulse on Vercel and activate
+            automated scheduled commits.
           </p>
         </div>
       </div>
 
-      <div className="guide-step">
-        <div className="step-number">1</div>
-        <div className="step-content">
-          <h3 className="step-title">Generate your GitHub Personal Access Token</h3>
-          <p className="step-desc">
-            GitHub requires a token to commit to your repositories via the REST API.
-          </p>
-          <div style={{ marginBottom: "12px" }}>
+      <div className="guide-steps">
+        {/* Step 1 */}
+        <div className="step-row">
+          <div className="step-num">1</div>
+          <div className="step-body">
+            <div className="step-title">Generate a GitHub Personal Access Token</div>
+            <p className="step-desc">
+              GitHub requires a token to commit to your repositories via the REST
+              API. Create a Classic token with the{" "}
+              <code
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  padding: "1px 5px",
+                  borderRadius: 3,
+                  fontSize: "0.78rem",
+                }}
+              >
+                repo
+              </code>{" "}
+              scope, or a Fine-Grained token with{" "}
+              <strong>Contents: Read and write</strong>.
+            </p>
             <a
               href="https://github.com/settings/tokens/new?scopes=repo&description=GitPulse-Vercel"
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-secondary btn-sm"
+              style={{ display: "inline-flex" }}
             >
-              <Key size={14} /> Open GitHub Token Creation Page <ExternalLink size={12} />
+              <Key size={13} />
+              Open GitHub Token Page
+              <ExternalLink size={12} />
             </a>
           </div>
-          <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-            Select the <code>repo</code> scope (Full control of private repositories and public repositories) and set your preferred expiration.
-          </p>
         </div>
-      </div>
 
-      <div className="guide-step">
-        <div className="step-number">2</div>
-        <div className="step-content">
-          <h3 className="step-title">Deploy to Vercel</h3>
-          <p className="step-desc">
-            Push this project to a new repository on your GitHub account, then import it in your Vercel Dashboard.
-          </p>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "12px" }}>
+        {/* Step 2 */}
+        <div className="step-row">
+          <div className="step-num">2</div>
+          <div className="step-body">
+            <div className="step-title">Deploy to Vercel</div>
+            <p className="step-desc">
+              Push this project to a GitHub repository, then import it in your
+              Vercel Dashboard. Vercel will automatically detect the Next.js
+              framework.
+            </p>
             <a
               href="https://vercel.com/new"
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-primary btn-sm"
+              style={{ display: "inline-flex" }}
             >
-              <Globe size={14} /> Open Vercel Project Importer <ExternalLink size={12} />
+              <Globe size={13} />
+              Open Vercel Project Importer
+              <ExternalLink size={12} />
             </a>
           </div>
         </div>
-      </div>
 
-      <div className="guide-step">
-        <div className="step-number">3</div>
-        <div className="step-content">
-          <h3 className="step-title">Configure Environment Variables in Vercel</h3>
-          <p className="step-desc">
-            In Vercel Dashboard &gt; <strong>Project Settings &gt; Environment Variables</strong>, add the following values:
-          </p>
+        {/* Step 3 */}
+        <div className="step-row">
+          <div className="step-num">3</div>
+          <div className="step-body">
+            <div className="step-title">Configure Environment Variables</div>
+            <p className="step-desc">
+              In Vercel Dashboard → <strong>Project Settings → Environment
+              Variables</strong>, add the following values:
+            </p>
+            <div className="code-box">
+              <div className="code-box-header">
+                <span className="code-box-label">Recommended .env Configuration</span>
+                <CopyBtn text={ENV_SAMPLE} />
+              </div>
+              <div className="code-body">
+                <pre>{ENV_SAMPLE}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <div className="code-snippet" style={{ alignItems: "flex-start", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginBottom: "8px" }}>
-              <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>Recommended .env Configuration</span>
-              <button
-                className="copy-btn"
-                onClick={() => copyToClipboard(envSample, setCopiedEnv)}
+        {/* Step 4 */}
+        <div className="step-row">
+          <div className="step-num">4</div>
+          <div className="step-body">
+            <div className="step-title">Vercel Cron Automation</div>
+            <p className="step-desc">
+              The repository includes a pre-configured{" "}
+              <code
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  padding: "1px 5px",
+                  borderRadius: 3,
+                  fontSize: "0.78rem",
+                }}
               >
-                {copiedEnv ? <Check size={12} style={{ display: "inline", marginRight: "4px" }} /> : <Copy size={12} style={{ display: "inline", marginRight: "4px" }} />}
-                {copiedEnv ? "Copied!" : "Copy"}
-              </button>
+                vercel.json
+              </code>{" "}
+              pointing to{" "}
+              <code
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  padding: "1px 5px",
+                  borderRadius: 3,
+                  fontSize: "0.78rem",
+                }}
+              >
+                /api/cron
+              </code>
+              .
+            </p>
+            <div className="info-box" style={{ marginBottom: 12 }}>
+              <Clock size={16} className="info-box-icon" />
+              <div>
+                <strong style={{ color: "var(--emerald)" }}>
+                  Schedule: 0 9 * * * (Every Day at 09:00 UTC)
+                </strong>
+                <br />
+                Vercel automatically provisions this Cron job upon deployment.
+                Monitor execution logs under{" "}
+                <strong>Vercel Dashboard → Settings → Cron Jobs</strong>.
+              </div>
             </div>
-            <pre style={{ whiteSpace: "pre-wrap", color: "#38bdf8", width: "100%" }}>{envSample}</pre>
+            <p
+              style={{
+                fontSize: "0.8rem",
+                color: "var(--text-2)",
+                marginBottom: 8,
+              }}
+            >
+              Test your deployed cron endpoint manually:
+            </p>
+            <div className="code-box">
+              <div className="code-box-header">
+                <span className="code-box-label">Manual cron trigger via curl</span>
+                <CopyBtn text={CURL_SAMPLE} />
+              </div>
+              <div className="code-body">
+                <pre>{CURL_SAMPLE}</pre>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="guide-step">
-        <div className="step-number">4</div>
-        <div className="step-content">
-          <h3 className="step-title">Vercel Cron Automation (`vercel.json`)</h3>
-          <p className="step-desc">
-            The repository contains a pre-configured <code>vercel.json</code> file pointing to <code>/api/cron</code>.
-          </p>
-          <div
-            style={{
-              padding: "12px 16px",
-              borderRadius: "var(--radius-sm)",
-              background: "rgba(16, 185, 129, 0.08)",
-              border: "1px solid rgba(16, 185, 129, 0.25)",
-              marginBottom: "12px",
-              fontSize: "0.85rem",
-              color: "var(--text-primary)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px", color: "var(--accent-emerald)", fontWeight: 600 }}>
-              <Clock size={16} /> Schedule: 0 9 * * * (Every Day at 09:00 UTC)
+        {/* Step 5 */}
+        <div className="step-row">
+          <div className="step-num">5</div>
+          <div className="step-body">
+            <div className="step-title">
+              <HelpCircle
+                size={15}
+                style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }}
+              />
+              Multiple Commits Per Day on Hobby? (Pro-Tip)
             </div>
-            Vercel automatically provisions this Cron job upon deployment. You can monitor execution logs under Vercel Dashboard &gt; Settings &gt; Cron Jobs.
+            <p className="step-desc">
+              Vercel Hobby plan limits built-in crons to once per day. To commit
+              multiple times per day on the free tier:
+            </p>
+            <ul
+              style={{
+                paddingLeft: 18,
+                fontSize: "0.82rem",
+                color: "var(--text-2)",
+                lineHeight: 1.7,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+              }}
+            >
+              <li>
+                Create a free account on{" "}
+                <a
+                  href="https://cron-job.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "var(--emerald)", fontWeight: 600 }}
+                >
+                  cron-job.org
+                </a>{" "}
+                or use GitHub Actions.
+              </li>
+              <li>
+                Set the target URL to{" "}
+                <code
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    padding: "1px 5px",
+                    borderRadius: 3,
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  https://your-app.vercel.app/api/cron?secret=YOUR_CRON_SECRET
+                </code>
+                .
+              </li>
+              <li>Choose your preferred schedule (e.g. every 4 hours, or twice daily).</li>
+            </ul>
           </div>
-
-          <div style={{ marginTop: "10px" }}>
-            <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "6px" }}>
-              Test your deployed cron endpoint manually at any time:
-            </div>
-            <div className="code-snippet">
-              <span style={{ color: "var(--accent-cyan)", overflowX: "auto" }}>
-                https://your-app.vercel.app/api/cron?secret=YOUR_CRON_SECRET
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="guide-step" style={{ marginBottom: 0 }}>
-        <div className="step-number">5</div>
-        <div className="step-content">
-          <h3 className="step-title">Multiple Commits Per Day on Vercel Hobby? (Pro-Tip)</h3>
-          <p className="step-desc">
-            Vercel Hobby plan natively limits built-in crons to once per day. If you want commits multiple times per day (e.g. every 4 or 6 hours) on the free tier:
-          </p>
-          <ul style={{ paddingLeft: "18px", fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: "1.6" }}>
-            <li>Create a free account on <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-emerald)" }}>cron-job.org</a> or use GitHub Actions.</li>
-            <li>Set the target URL to <code>https://your-app.vercel.app/api/cron?secret=YOUR_CRON_SECRET</code>.</li>
-            <li>Choose your preferred schedule (e.g. every 4 hours, or twice daily).</li>
-          </ul>
         </div>
       </div>
     </div>

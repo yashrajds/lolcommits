@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Activity, Key, RefreshCw } from "lucide-react";
-import { GitHubUser } from "@/lib/github";
+import type { GitHubUser } from "@/lib/github";
 
 interface NavbarProps {
   user: GitHubUser | null;
@@ -18,100 +18,69 @@ export const Navbar: React.FC<NavbarProps> = ({
   onRefresh,
 }) => {
   return (
-    <nav className="navbar">
+    <header className="navbar">
+      {/* Brand */}
       <div className="brand">
-        <div className="brand-icon-wrapper">
-          <Activity size={22} />
-          <div className="brand-pulse-dot" />
+        <div className="brand-mark">
+          <Activity size={16} />
+          <span className="brand-pulse" />
         </div>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span className="brand-title">GitPulse</span>
-            <span className="brand-badge">Vercel AutoCommit</span>
-          </div>
-        </div>
+        <span className="brand-name">GitPulse</span>
+        <span className="brand-tag">AutoCommit</span>
       </div>
 
-      <div className="nav-actions">
+      {/* Right Actions */}
+      <div className="nav-right">
         {user ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <>
             <button
               id="refresh-repos-btn"
               className="btn btn-secondary btn-sm"
               onClick={onRefresh}
               disabled={loading}
-              title="Refresh Repositories"
+              title="Refresh repositories"
             >
-              <RefreshCw size={14} className={loading ? "spin" : ""} />
+              <RefreshCw size={13} className={loading ? "spin" : ""} />
               Refresh
             </button>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                padding: "4px 12px 4px 6px",
-                background: "rgba(16, 185, 129, 0.1)",
-                border: "1px solid rgba(16, 185, 129, 0.3)",
-                borderRadius: "var(--radius-full)",
-              }}
-            >
-              {user.avatar_url ? (
-                <img
-                  src={user.avatar_url}
-                  alt={user.login}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    border: "1px solid var(--accent-emerald)",
-                  }}
-                />
-              ) : (
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--accent-emerald)"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
-                  <path d="M9 18c-4.51 2-5-2-7-2" />
-                </svg>
-              )}
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#fff" }}>
-                  @{user.login}
-                </span>
-                <span style={{ fontSize: "0.68rem", color: "var(--text-secondary)" }}>
-                  {user.public_repos + (user.total_private_repos || 0)} Repos
+
+            <div className="user-chip">
+              <div className="user-avatar">
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt={user.login} />
+                ) : (
+                  <Activity size={14} color="var(--emerald)" />
+                )}
+              </div>
+              <div className="user-info">
+                <span className="user-login">@{user.login}</span>
+                <span className="user-repos">
+                  {(user.public_repos ?? 0) + (user.total_private_repos ?? 0)} repos
                 </span>
               </div>
             </div>
+
             <button
               id="change-token-btn"
               className="btn btn-secondary btn-sm"
               onClick={onOpenTokenModal}
               title="Manage GitHub Token"
             >
-              <Key size={14} />
+              <Key size={13} />
               Config
             </button>
-          </div>
+          </>
         ) : (
           <button
             id="connect-token-btn"
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             onClick={onOpenTokenModal}
           >
-            <Key size={16} />
-            Connect GitHub Token
+            <Key size={13} />
+            Connect GitHub
           </button>
         )}
       </div>
-    </nav>
+    </header>
   );
 };

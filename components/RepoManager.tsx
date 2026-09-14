@@ -12,8 +12,11 @@ import {
   GitFork,
   Send,
   ExternalLink,
+  FolderGit2,
 } from "lucide-react";
-import { GitHubRepo } from "@/lib/github";
+import type { GitHubRepo } from "@/lib/github";
+
+type Filter = "all" | "public" | "private" | "non-forks";
 
 interface RepoManagerProps {
   repos: GitHubRepo[];
@@ -35,190 +38,205 @@ export const RepoManager: React.FC<RepoManagerProps> = ({
   isCommitting,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"all" | "public" | "private" | "non-forks">("non-forks");
+  const [activeFilter, setActiveFilter] = useState<Filter>("non-forks");
 
-  const filteredRepos = useMemo(() => {
-    return repos.filter((repo) => {
-      // Search matching
-      const matchesSearch =
-        repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        repo.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (repo.description && repo.description.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      if (!matchesSearch) return false;
-
-      // Filter matching
-      if (activeFilter === "public") return !repo.private;
-      if (activeFilter === "private") return repo.private;
-      if (activeFilter === "non-forks") return !repo.fork;
-
+  const filtered = useMemo(() => {
+    return repos.filter((r) => {
+      const q = searchQuery.toLowerCase();
+      const matchSearch =
+        r.name.toLowerCase().includes(q) ||
+        r.full_name.toLowerCase().includes(q) ||
+        (r.description?.toLowerCase().includes(q) ?? false);
+      if (!matchSearch) return false;
+      if (activeFilter === "public") return !r.private;
+      if (activeFilter === "private") return r.private;
+      if (activeFilter === "non-forks") return !r.fork;
       return true;
     });
   }, [repos, searchQuery, activeFilter]);
+
+  const counts = {
+    all: repos.length,
+    "non-forks": repos.filter((r) => !r.fork).length,
+    public: repos.filter((r) => !r.private).length,
+    private: repos.filter((r) => r.private).length,
+  };
+
+  const filters: { key: Filter; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "non-forks", label: "Original" },
+    { key: "public", label: "Public" },
+    { key: "private", label: "Private" },
+  ];
 
   return (
     <div className="card">
       <div className="card-header">
         <div>
-          <h2 className="card-title">
-            <span>Repository Manager</span>
-            <span className="brand-badge" style={{ fontSize: "0.7rem" }}>
-              {selectedRepoIds.size} of {repos.length} selected
+          <div className="card-title">
+            <FolderGit2 size={17} color="var(--violet)" />
+            Repository Manager
+            <span className="badge badge-violet">
+              {selectedRepoIds.size} / {repos.length}
             </span>
-          </h2>
-          <p className="card-description">
+          </div>
+          <p className="card-desc">
             Choose which repositories will receive automated heartbeat commits.
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div className="repo-toolbar-right">
           <button
             id="select-all-btn"
             className="btn btn-secondary btn-sm"
             onClick={onSelectAll}
+            title="Select all repositories"
           >
-            <CheckSquare size={14} /> Select All
+            <CheckSquare size={13} />
+            Select All
           </button>
           <button
             id="deselect-all-btn"
             className="btn btn-secondary btn-sm"
             onClick={onDeselectAll}
+            title="Deselect all repositories"
           >
-            <Square size={14} /> Clear
+            <Square size={13} />
+            Clear
           </button>
         </div>
       </div>
 
-      <div className="repo-search-bar">
-        <div className="search-input-wrapper">
-          <Search size={16} className="search-icon" />
-          <input
-            id="repo-search-input"
-            type="text"
-            className="text-input"
-            placeholder="Search repositories by name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      {/* Search + filters */}
+      <div className="repo-toolbar">
+        <div className="repo-toolbar-left">
+          <div
+            className="input-wrapper"
+            style={{ flex: 1, minWidth: 200, maxWidth: 360 }}
+          >
+            <Search size={14} className="input-icon-left" />
+            <input
+              id="repo-search-input"
+              type="text"
+              className="input"
+              placeholder="Search repositories…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ paddingLeft: 34 }}
+            />
+          </div>
 
-        <div className="repo-filters">
-          <span
-            className={`filter-badge ${activeFilter === "all" ? "active" : ""}`}
-            onClick={() => setActiveFilter("all")}
-          >
-            All ({repos.length})
-          </span>
-          <span
-            className={`filter-badge ${activeFilter === "non-forks" ? "active" : ""}`}
-            onClick={() => setActiveFilter("non-forks")}
-          >
-            Original ({repos.filter((r) => !r.fork).length})
-          </span>
-          <span
-            className={`filter-badge ${activeFilter === "public" ? "active" : ""}`}
-            onClick={() => setActiveFilter("public")}
-          >
-            Public ({repos.filter((r) => !r.private).length})
-          </span>
-          <span
-            className={`filter-badge ${activeFilter === "private" ? "active" : ""}`}
-            onClick={() => setActiveFilter("private")}
-          >
-            Private ({repos.filter((r) => r.private).length})
-          </span>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {filters.map(({ key, label }) => (
+              <button
+                key={key}
+                className={`filter-pill ${activeFilter === key ? "active" : ""}`}
+                onClick={() => setActiveFilter(key)}
+              >
+                {label}
+                <span className="filter-count">{counts[key]}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {filteredRepos.length === 0 ? (
-        <div
-          style={{
-            padding: "40px 20px",
-            textAlign: "center",
-            color: "var(--text-muted)",
-            fontSize: "0.9rem",
-          }}
-        >
-          {repos.length === 0
-            ? "No repositories found. Connect your GitHub token above."
-            : "No repositories match your search or filter."}
+      {/* Repo list */}
+      {filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">
+            <FolderGit2 size={32} />
+          </div>
+          <div className="empty-title">
+            {repos.length === 0
+              ? "No repositories found"
+              : "No repositories match your filter"}
+          </div>
+          <div className="empty-desc">
+            {repos.length === 0
+              ? "Connect your GitHub token to load repositories."
+              : "Try adjusting the search query or filter."}
+          </div>
         </div>
       ) : (
         <div className="repo-list" id="repo-list-container">
-          {filteredRepos.map((repo) => {
+          {filtered.map((repo) => {
             const isSelected = selectedRepoIds.has(repo.id);
             return (
               <div
                 key={repo.id}
-                className={`repo-item ${isSelected ? "selected" : ""}`}
+                className={`repo-row ${isSelected ? "selected" : ""}`}
                 id={`repo-item-${repo.name}`}
               >
-                <div className="repo-info">
+                <div className="repo-left">
                   <input
                     type="checkbox"
-                    className="repo-checkbox"
+                    className="repo-check"
                     checked={isSelected}
                     onChange={() => onToggleSelect(repo.id)}
                     id={`checkbox-${repo.name}`}
                     title="Toggle auto-commit target"
                   />
-
-                  <div className="repo-name-box">
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div className="repo-info">
+                    <div className="repo-name-row">
                       <a
                         href={repo.html_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="repo-name-link"
+                        className="repo-name"
                       >
                         {repo.name}
-                        <ExternalLink size={12} color="var(--text-muted)" />
+                        <ExternalLink size={11} color="var(--text-4)" />
                       </a>
 
                       {repo.private ? (
-                        <span className="meta-pill" style={{ color: "var(--accent-amber)" }}>
-                          <Lock size={10} style={{ display: "inline", marginRight: "3px" }} />
+                        <span className="badge badge-amber">
+                          <Lock size={9} />
                           Private
                         </span>
                       ) : (
-                        <span className="meta-pill" style={{ color: "var(--accent-cyan)" }}>
-                          <Globe size={10} style={{ display: "inline", marginRight: "3px" }} />
+                        <span className="badge badge-cyan">
+                          <Globe size={9} />
                           Public
                         </span>
                       )}
 
                       {repo.fork && (
-                        <span className="meta-pill" style={{ color: "var(--text-muted)" }}>
-                          <GitFork size={10} style={{ display: "inline", marginRight: "3px" }} />
+                        <span className="badge badge-muted">
+                          <GitFork size={9} />
                           Fork
                         </span>
                       )}
                     </div>
 
-                    <div className="repo-meta">
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                        <GitBranch size={11} /> {repo.default_branch}
+                    <div className="repo-meta-row">
+                      <span className="meta-item">
+                        <GitBranch size={11} />
+                        {repo.default_branch}
                       </span>
                       {repo.stargazers_count > 0 && (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                          <Star size={11} color="#f59e0b" /> {repo.stargazers_count}
+                        <span className="meta-item">
+                          <Star size={11} color="var(--amber)" />
+                          {repo.stargazers_count}
                         </span>
                       )}
-                      <span>
+                      <span className="meta-item">
                         Updated {new Date(repo.updated_at).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="repo-actions">
+                <div style={{ flexShrink: 0 }}>
                   <button
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary btn-xs"
                     onClick={() => onSingleCommit(repo)}
                     disabled={isCommitting}
                     title="Test instant pulse commit to this repository"
+                    id={`test-pulse-${repo.name}`}
                   >
-                    <Send size={12} /> Test Pulse
+                    <Send size={11} />
+                    Test Pulse
                   </button>
                 </div>
               </div>
