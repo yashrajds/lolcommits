@@ -13,6 +13,11 @@ export const metadata: Metadata = {
     "git automation",
     "gitpulse",
   ],
+  icons: {
+    icon: "https://cdn3.emoji.gg/emojis/24606-catstatue.png",
+    shortcut: "https://cdn3.emoji.gg/emojis/24606-catstatue.png",
+    apple: "https://cdn3.emoji.gg/emojis/24606-catstatue.png",
+  },
 };
 
 export default function RootLayout({
