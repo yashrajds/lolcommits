@@ -208,7 +208,7 @@ export async function commitHeartbeat(
 
   try {
     // 1. Check if the file already exists to obtain its SHA
-    const contentUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`;
+    const contentUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodeURIComponent(filePath)}?ref=${encodeURIComponent(branch)}`;
     const getRes = await fetch(contentUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
