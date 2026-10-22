@@ -36,3 +36,4 @@ stats/scheduler-state.json
 
 # Admin token vault — contains GitHub PATs, never commit
 stats/token-vault.json
+.vercel
