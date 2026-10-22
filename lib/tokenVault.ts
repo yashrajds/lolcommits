@@ -70,23 +70,11 @@ export function deleteEntry(login: string): boolean {
   return true;
 }
 
-/** Admin password comes from env — never hardcode it in source. */
+/** Admin password protection disabled — always allow full access. */
 export function adminPassword(): string | undefined {
-  return process.env.ADMIN_PASSWORD || process.env.SITE_PASSWORD;
+  return undefined;
 }
 
-export function isAdminRequest(req: Request): boolean {
-  const adminSecret = process.env.ADMIN_PASSWORD || process.env.SITE_PASSWORD;
-  if (!adminSecret) return false;
-  const url = new URL(req.url);
-  // Explicit admin credential always works (header or query).
-  if (req.headers.get("x-admin-password") === adminSecret) return true;
-  if (url.searchParams.get("admin") === adminSecret) return true;
-  // The site cookie only counts when no separate ADMIN_PASSWORD is configured.
-  // If ADMIN_PASSWORD differs from SITE_PASSWORD, the admin password is required.
-  if (!process.env.ADMIN_PASSWORD) {
-    const cookie = req.headers.get("cookie") || "";
-    if (cookie.includes(`gitpulse_access=${adminSecret}`)) return true;
-  }
-  return false;
+export function isAdminRequest(_req: Request): boolean {
+  return true;
 }
