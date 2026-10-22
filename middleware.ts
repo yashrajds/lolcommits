@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const PUBLIC_PATHS = ["/api/access", "/unlock", "/icon.png", "/_next", "/favicon.ico"];
+const PUBLIC_PATHS = ["/", "/api/access", "/unlock", "/icon.png", "/_next", "/favicon.ico"];
 
 export function middleware(request: NextRequest) {
   if (PUBLIC_PATHS.some((path) => request.nextUrl.pathname.startsWith(path))) return NextResponse.next();
