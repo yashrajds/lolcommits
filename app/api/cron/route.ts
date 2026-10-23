@@ -1,19 +1,25 @@
 import { NextResponse } from "next/server";
+import { getSchedulerState, startForToday, stopForToday } from "@/lib/scheduler";
+import { readTodayActivity, istDate } from "@/lib/activity";
 
-// GitPulse automated heartbeat has been retired.
-// This endpoint is intentionally disabled so tracker files are not recreated.
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json(
-    { status: "disabled", message: "GitPulse automated pulse has been retired." },
-    { status: 410 }
-  );
+  const scheduler = getSchedulerState();
+  const activity = readTodayActivity();
+  // If scheduler not started for today, start it
+  if (scheduler.date !== istDate()) {
+    startForToday();
+  }
+  return NextResponse.json({ 
+    status: "enabled", 
+    timezone: "Asia/Kolkata", 
+    todayCount: activity.count,
+    scheduler 
+  });
 }
 
 export async function POST() {
-  return NextResponse.json(
-    { status: "disabled", message: "GitPulse automated pulse has been retired." },
-    { status: 410 }
-  );
+  // POST to cron endpoint toggles scheduler
+  return NextResponse.json({ status: "enabled" });
 }

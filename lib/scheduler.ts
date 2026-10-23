@@ -7,7 +7,7 @@ export type SchedulerState = { date: string; enabled: boolean; stoppedDate?: str
 
 const FILE = () => path.join(process.cwd(), "stats", "scheduler-state.json");
 let memoryScheduler: SchedulerState | null = null;
-const count = () => Math.max(1, Math.min(12, Number(process.env.DAILY_SCHEDULE_COUNT || 3)));
+const count = () => Math.max(1, Math.min(200, Number(process.env.DAILY_SCHEDULE_COUNT || 100)));
 const windowStart = () => Number(process.env.SCHEDULE_START_HOUR_IST || 9);
 const windowEnd = () => Number(process.env.SCHEDULE_END_HOUR_IST || 21);
 
