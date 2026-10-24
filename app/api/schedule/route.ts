@@ -19,28 +19,27 @@ export async function POST(request: Request) {
     const state = startForToday();
     // Execute all upcoming commits - record activity
     const commitsToExecute = state.schedule.filter((s) => s.status === "upcoming");
-    if (commitsToExecute.length > 0) {
-      // Record each commit as activity
-      const activityEntries = commitsToExecute.map((commit) => ({
-        repo: `gitpulse-autocommit-${commit.id}`,
-        sha: `commit-${commit.id}`,
-        time: commit.at
-      }));
-      const updatedActivity = recordActivity(activityEntries);
-      return NextResponse.json({ 
-        success: true, 
-        timezone: "Asia/Kolkata", 
-        todayCount: updatedActivity.count,
-        scheduled: commitsToExecute.length,
-        recorded: updatedActivity.count,
-        details: commitsToExecute.map((c) => ({
-          id: c.id,
-          time: c.at,
-          status: "recorded"
-        }))
-      });
-    }
-    return NextResponse.json({ success: true, timezone: "Asia/Kolkata", todayCount: activity.count, scheduled: 0, recorded: 0 });
+    
+    // Always record activity for today's commits
+    const activityEntries = commitsToExecute.map((commit) => ({
+      repo: `gitpulse-autocommit-${commit.id}`,
+      sha: `commit-${commit.id}`,
+      time: commit.at
+    }));
+    const updatedActivity = recordActivity(activityEntries);
+    
+    return NextResponse.json({ 
+      success: true, 
+      timezone: "Asia/Kolkata", 
+      todayCount: updatedActivity.count,
+      scheduled: commitsToExecute.length,
+      recorded: updatedActivity.count,
+      details: commitsToExecute.map((c) => ({
+        id: c.id,
+        time: c.at,
+        status: "recorded"
+      }))
+    });
   }
   
   if (action === "stop") {
