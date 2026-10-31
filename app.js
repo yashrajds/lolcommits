@@ -21,6 +21,8 @@ const LS = {
   AUTO:     'lc_auto',
   SCHEDULE: 'lc_schedule',      // JSON array of today's scheduled times (ms)
   LOG:      'lc_log',           // JSON array of commit log entries
+  REPOS:    'lc_repos',         // JSON array of repo names
+  REPO_INDEX: 'lc_repo_index'   // current repo index
 };
 
 // ── DOM refs ──────────────────────────────────────────────────────
@@ -98,7 +100,7 @@ function todayKey() {
 // ── Persist settings ──────────────────────────────────────────────
 function saveSettings() {
   // Owner is auto-set from verified GitHub token, don't overwrite from input
-  save(LS.REPO,     repoName.value.trim());
+  // Repos and index are managed automatically for cycling
   save(LS.BRANCH,   branchName.value.trim() || 'main');
   save(LS.MIN,      minCommits.value);
   save(LS.MAX,      maxCommits.value);
@@ -142,6 +144,19 @@ async function verifyToken() {
     const user = await ghRequest('/user');
     // Auto-set the owner from the authenticated GitHub account
     save(LS.OWNER, user.login);
+    // Fetch user's repositories
+    const reposRes = await ghRequest('/user/repos?per_page=100');
+    const repoNames = reposRes.map(r => r.name);
+    save(LS.REPOS, repoNames);
+    // Reset index if no index stored or if repo list changed
+    const idx = load(LS.REPO_INDEX, 0);
+    const repos = load(LS.REPOS, []);
+    // If index is out of bounds or repo list changed, reset to 0
+    if (idx >= repos.length) save(LS.REPO_INDEX, 0);
+    // Set first repo name
+    if (repoNames.length > 0) {
+      repoName.value = repoNames[0];
+    }
     tokenStatus.className = 'token-status ok';
     tokenStatus.textContent = `✓ Authenticated as @${user.login}`;
     tokenStatus.classList.remove('hidden');
@@ -158,8 +173,13 @@ async function verifyToken() {
 
 async function makeCommit(message, type = 'auto') {
   const owner  = load(LS.OWNER);
-  const repo   = load(LS.REPO);
+  const repos  = load(LS.REPOS, []);
+  let repoIdx  = load(LS.REPO_INDEX, 0) | 0; // ensure integer
+  const repo   = repos[repoIdx] || '';
   const branch = load(LS.BRANCH, 'main');
+
+  // Cycle to next repo for next commit
+  save(LS.REPO_INDEX, repoIdx + 1);
 
   if (!owner || !repo) {
     toast('Set owner & repo name first!', 'error');
@@ -201,6 +221,9 @@ async function makeCommit(message, type = 'auto') {
       sha: newCommit.sha,
       force: false,
     });
+
+    // Update repoName UI to show the repo used
+    repoName.value = repo;
 
     // Log it
     const logEntry = {
