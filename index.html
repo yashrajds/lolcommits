@@ -22,6 +22,15 @@
       <span class="status-dot idle"></span>
       <span id="statusText">idle</span>
     </div>
+    <div class="logo">
+      <a
+        href="https://github.com/settings/tokens/new?scopes=repo&description=lolcommits"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="logo-text"
+        style="margin-left: 16px; font-size: 12px; color: var(--accent); text-decoration: underline;"
+      >Get GitHub Token</a>
+    </div>
   </header>
 
   <!-- ────────────────── MAIN ────────────────── -->
@@ -52,7 +61,7 @@
       <div class="repo-row">
         <div class="input-group">
           <label for="repoOwner">Owner / Username</label>
-          <input type="text" id="repoOwner" placeholder="octocat" />
+          <input type="text" id="repoOwner" placeholder="auto-from-token" readonly />
         </div>
         <div class="input-group">
           <label for="repoName">Repository</label>

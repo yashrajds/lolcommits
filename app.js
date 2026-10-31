@@ -97,7 +97,7 @@ function todayKey() {
 
 // ── Persist settings ──────────────────────────────────────────────
 function saveSettings() {
-  save(LS.OWNER,    repoOwner.value.trim());
+  // Owner is auto-set from verified GitHub token, don't overwrite from input
   save(LS.REPO,     repoName.value.trim());
   save(LS.BRANCH,   branchName.value.trim() || 'main');
   save(LS.MIN,      minCommits.value);
@@ -140,9 +140,13 @@ async function ghRequest(path, method = 'GET', body = null) {
 async function verifyToken() {
   try {
     const user = await ghRequest('/user');
+    // Auto-set the owner from the authenticated GitHub account
+    save(LS.OWNER, user.login);
     tokenStatus.className = 'token-status ok';
     tokenStatus.textContent = `✓ Authenticated as @${user.login}`;
     tokenStatus.classList.remove('hidden');
+    // Populate the owner field with the authenticated user
+    if (repoOwner) repoOwner.value = user.login;
     return true;
   } catch (e) {
     tokenStatus.className = 'token-status error';
