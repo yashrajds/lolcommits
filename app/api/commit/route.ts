@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { batchCommitPulse, getAuthenticatedUser } from "@/lib/github";
-import { recordActivity } from "@/lib/activity";
 
 const NAME_RE = /^[A-Za-z0-9_.-]{1,100}$/;
 const BRANCH_RE = /^[A-Za-z0-9_.\-/]{1,255}$/;
@@ -21,7 +20,7 @@ function isSafePath(p: string): boolean {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const token = body.token || process.env.GITHUB_TOKEN;
+    const token = typeof body.token === "string" ? body.token.trim() : "";
 
     if (!token) {
       return NextResponse.json(
@@ -55,7 +54,7 @@ export async function POST(req: NextRequest) {
     const filePath =
       typeof body.filePath === "string" && isSafePath(body.filePath.trim())
         ? body.filePath.trim()
-        : ".github-pulse.md";
+        : ".gitpulse/pulse.log";
     const commitMessage =
       typeof body.commitMessage === "string" && body.commitMessage.trim()
         ? body.commitMessage.trim().slice(0, 200)
@@ -86,8 +85,6 @@ export async function POST(req: NextRequest) {
 
     const successCount = results.filter((r) => r.success).length;
     const failureCount = results.filter((r) => !r.success).length;
-    recordActivity(results.filter((r) => r.success).map((r) => ({ repo: r.repo, sha: r.sha, time: new Date().toISOString() })));
-
     return NextResponse.json({
       success: true,
       total: results.length,

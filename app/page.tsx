@@ -4,10 +4,9 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Navbar } from "@/components/Navbar";
 import { RepoManager } from "@/components/RepoManager";
 import { CommitConsole } from "@/components/CommitConsole";
-import { VercelDeployGuide } from "@/components/VercelDeployGuide";
+import { AutomationGuide } from "@/components/AutomationGuide";
 import { TokenConfigModal } from "@/components/TokenConfigModal";
 import { EclipseDashboard } from "@/components/EclipseDashboard";
-import type { SchedulerState } from "@/lib/scheduler";
 import type { GitHubUser, GitHubRepo, CommitResult } from "@/lib/github";
 import {
   Database,
@@ -18,18 +17,47 @@ import {
   Terminal,
 } from "lucide-react";
 
-type Tab = "dashboard" | "repos" | "console" | "deploy";
+type Tab = "dashboard" | "repos" | "console" | "guide";
+type ManualPulse = { key: string; repository: string; time: string; date: string };
+
+const indiaDateKey = (date: Date) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+};
+
+const indiaTime = (date: Date) => new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Kolkata",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+}).format(date);
+
+const readManualPulses = (login: string): ManualPulse[] => {
+  try {
+    const stored = localStorage.getItem(`gitpulse_manual_pulses:${login}`);
+    if (!stored) return [];
+    const today = indiaDateKey(new Date());
+    return (JSON.parse(stored) as ManualPulse[]).filter((pulse) => pulse.date === today);
+  } catch {
+    return [];
+  }
+};
 
 const NAV_ITEMS: { tab: Tab; icon: React.ReactNode; label: string }[] = [
   { tab: "dashboard", icon: <LayoutDashboard size={18} />, label: "Dashboard" },
   { tab: "console",   icon: <Terminal size={18} />,        label: "Console" },
   { tab: "repos",     icon: <FolderGit2 size={18} />,      label: "Repositories" },
-  { tab: "deploy",    icon: <Rocket size={18} />,           label: "Deployment guide" },
+  { tab: "guide",     icon: <Rocket size={18} />,           label: "Automation guide" },
 ];
 
 export default function Home() {
   const [token,            setToken]            = useState<string>("");
-  const [hasEnvToken,      setHasEnvToken]      = useState<boolean>(false);
   const [user,             setUser]             = useState<GitHubUser | null>(null);
   const [repos,            setRepos]            = useState<GitHubRepo[]>([]);
   const [selectedRepoIds,  setSelectedRepoIds]  = useState<Set<number>>(new Set());
@@ -39,36 +67,38 @@ export default function Home() {
   const [activeTab,        setActiveTab]        = useState<Tab>("dashboard");
   const [recentResults,    setRecentResults]    = useState<CommitResult[]>([]);
   const [sessionCommits,   setSessionCommits]   = useState<number>(0);
-  const [todayCommits,     setTodayCommits]     = useState<number>(0);
+  const [automatedPulses, setAutomatedPulses] = useState<{ key: string; repository: string; time: string; timestamp: string; url: string }[]>([]);
+  const [automationCheckError, setAutomationCheckError] = useState<string | null>(null);
   const [lastRunTime,      setLastRunTime]      = useState<string | null>(null);
-  const [scheduler,        setScheduler]        = useState<SchedulerState | null>(null);
-  const [stopping,         setStopping]         = useState<boolean>(false);
+  const [automatedRepos,   setAutomatedRepos]   = useState<Set<string>>(new Set());
+  const [todaySchedule, setTodaySchedule] = useState<{ repository: string; time: string }[]>([]);
+  const [manualPulses, setManualPulses] = useState<ManualPulse[]>([]);
+  const [isInstallingAutomation, setIsInstallingAutomation] = useState(false);
   const [notice, setNotice]                     = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
 
   const dismissNotice = useCallback(() => setNotice(null), []);
+  const recordManualPulses = useCallback((results: CommitResult[]) => {
+    if (!user) return;
+    const today = indiaDateKey(new Date());
+    const entries = results
+      .filter((result) => result.success && indiaDateKey(new Date(result.timestamp)) === today)
+      .map((result, index) => ({
+        key: result.sha ?? `${result.timestamp}-${result.owner}-${result.repo}-${index}`,
+        repository: `${result.owner}/${result.repo}`,
+        time: indiaTime(new Date(result.timestamp)),
+        date: today,
+      }));
+    if (!entries.length) return;
+
+    setManualPulses((previous) => {
+      const merged = [...entries, ...previous.filter((pulse) => pulse.date === today)];
+      const unique = [...new Map(merged.map((pulse) => [pulse.key, pulse])).values()];
+      localStorage.setItem(`gitpulse_manual_pulses:${user.login}`, JSON.stringify(unique));
+      return unique;
+    });
+  }, [user]);
 
   // ── Data fetchers ──────────────────────────────────────────────────────────
-
-  const fetchDailyStats = useCallback(async () => {
-    try {
-      const res  = await fetch("/api/stats");
-      const data = await res.json();
-      if (data.success && typeof data.todayCount === "number") {
-        setTodayCommits(data.todayCount);
-      }
-    } catch { /* silently ignore */ }
-  }, []);
-
-  const fetchSchedule = useCallback(async () => {
-    try {
-      const res  = await fetch("/api/schedule");
-      const data = await res.json();
-      if (data.success) {
-        setScheduler(data.scheduler);
-        setTodayCommits(data.todayCount);
-      }
-    } catch { /* silently ignore */ }
-  }, []);
 
   const verifyAndLoadUser = useCallback(async (tok?: string): Promise<GitHubUser | null> => {
     setLoading(true);
@@ -81,7 +111,6 @@ export default function Home() {
       const data = await res.json();
       if (res.ok && data.valid && data.user) {
         setUser(data.user);
-        setHasEnvToken(Boolean(data.hasEnvToken));
         return data.user;
       }
       setUser(null);
@@ -121,63 +150,90 @@ export default function Home() {
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem("gitpulse_token") ?? "" : "";
     if (saved) setToken(saved);
-
-    fetchDailyStats();
-    fetchSchedule();
-
+    const savedAutomation = typeof window !== "undefined" ? localStorage.getItem("gitpulse_automated_repos") : null;
+    if (savedAutomation) {
+      try { setAutomatedRepos(new Set(JSON.parse(savedAutomation))); } catch { localStorage.removeItem("gitpulse_automated_repos"); }
+    }
     verifyAndLoadUser(saved || undefined).then((verifiedUser) => {
       if (verifiedUser) {
+        setManualPulses(readManualPulses(verifiedUser.login));
         fetchRepositories(saved || undefined);
       } else if (!saved) {
+        setManualPulses([]);
         setIsTokenModalOpen(true);
       }
     });
 
-    const intervalId = window.setInterval(fetchSchedule, 30_000);
-    return () => window.clearInterval(intervalId);
-  }, [verifyAndLoadUser, fetchRepositories, fetchDailyStats, fetchSchedule]);
+  }, [verifyAndLoadUser, fetchRepositories]);
 
-  // ── Scheduler controls ────────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
 
-  const stopForToday = async () => {
-    setStopping(true);
-    try {
-      const res  = await fetch("/api/schedule", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setScheduler(data.scheduler);
-        setNotice({ tone: "info", text: "Remaining commit windows have been cancelled for today." });
-      } else {
-        setNotice({ tone: "error", text: data.error ?? "Unable to update the scheduler." });
-      }
-    } catch {
-      setNotice({ tone: "error", text: "The scheduler could not be reached. Please try again." });
-    } finally {
-      setStopping(false);
+    const buildTodaySchedule = async () => {
+      const date = indiaDateKey(new Date());
+      const enabledRepos = repos.filter((repo) =>
+        automatedRepos.has(`${repo.owner.login}/${repo.name}`),
+      );
+
+      const schedule = await Promise.all(enabledRepos.map(async (repo) => {
+        const fullName = `${repo.owner.login}/${repo.name}`;
+        const input = new TextEncoder().encode(`${date}:${fullName}`);
+        const digest = await crypto.subtle.digest("SHA-256", input);
+        const firstEightHex = Array.from(new Uint8Array(digest).slice(0, 4))
+          .map((byte) => byte.toString(16).padStart(2, "0"))
+          .join("");
+        const hour = 9 + (Number.parseInt(firstEightHex, 16) % 13);
+        return {
+          repository: fullName,
+          time: `${String(hour).padStart(2, "0")}:00`,
+        };
+      }));
+
+      schedule.sort((left, right) => left.time.localeCompare(right.time));
+      if (!cancelled) setTodaySchedule(schedule);
+    };
+
+    buildTodaySchedule().catch(() => {
+      if (!cancelled) setTodaySchedule([]);
+    });
+    return () => { cancelled = true; };
+  }, [repos, automatedRepos]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const enabledRepos = repos.filter((repo) => automatedRepos.has(`${repo.owner.login}/${repo.name}`));
+    if (!token || enabledRepos.length === 0) {
+      setAutomatedPulses([]);
+      setAutomationCheckError(null);
+      return;
     }
-  };
 
-  const startForToday = async () => {
-    setStopping(true);
-    try {
-      const res  = await fetch("/api/schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "start" }),
+    fetch("/api/automation/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token,
+        repos: enabledRepos.map((repo) => ({
+          owner: repo.owner.login,
+          repo: repo.name,
+          branch: repo.default_branch || "main",
+        })),
+      }),
+    })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not check GitHub commit history.");
+        if (!cancelled) {
+          setAutomatedPulses(data.pulses ?? []);
+          setAutomationCheckError(null);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setAutomationCheckError(error instanceof Error ? error.message : "Could not check GitHub commit history.");
       });
-      const data = await res.json();
-      if (data.success) {
-        setScheduler(data.scheduler);
-        setNotice({ tone: "success", text: "Automation restarted with new future IST windows." });
-      } else {
-        setNotice({ tone: "error", text: data.error ?? "Unable to restart the scheduler." });
-      }
-    } catch {
-      setNotice({ tone: "error", text: "The scheduler could not be reached. Please try again." });
-    } finally {
-      setStopping(false);
-    }
-  };
+
+    return () => { cancelled = true; };
+  }, [repos, automatedRepos, token]);
 
   // ── Token management ──────────────────────────────────────────────────────
 
@@ -185,21 +241,63 @@ export default function Home() {
     const verifiedUser = await verifyAndLoadUser(newToken);
     if (verifiedUser) {
       setToken(newToken);
+      setManualPulses(readManualPulses(verifiedUser.login));
       if (typeof window !== "undefined") localStorage.setItem("gitpulse_token", newToken);
-      // Best-effort: record this login in the admin vault (never blocks login).
-      try {
-        await fetch("/api/tokens", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: newToken }),
-        });
-      } catch {
-        /* vault unavailable — login still succeeds */
-      }
       await fetchRepositories(newToken);
       return true;
     }
     return false;
+  };
+
+  const handleDisconnect = () => {
+    localStorage.removeItem("gitpulse_token");
+    setToken("");
+    setUser(null);
+    setRepos([]);
+    setSelectedRepoIds(new Set());
+    setIsTokenModalOpen(false);
+  };
+
+  const handleEnableAutomation = async () => {
+    const targets = repos
+      .filter((repo) => selectedRepoIds.has(repo.id))
+      .map((repo) => ({ owner: repo.owner.login, repo: repo.name, branch: repo.default_branch || "main" }));
+    if (!token || !targets.length) {
+      setNotice({ tone: "info", text: "Connect GitHub and select at least one repository first." });
+      return;
+    }
+
+    setIsInstallingAutomation(true);
+    try {
+      const response = await fetch("/api/automation/install", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, repos: targets }),
+      });
+      const data = await response.json();
+      if (!response.ok || !Array.isArray(data.results)) {
+        throw new Error(data.error || "Could not enable daily automation.");
+      }
+
+      const installed = new Set(automatedRepos);
+      for (const result of data.results) {
+        const fullName = `${result.owner}/${result.repo}`;
+        if (result.success) installed.add(fullName);
+      }
+      setAutomatedRepos(installed);
+      localStorage.setItem("gitpulse_automated_repos", JSON.stringify([...installed]));
+
+      setNotice({
+        tone: data.failureCount ? "error" : "success",
+        text: data.failureCount
+          ? `Automation enabled for ${data.successCount} of ${data.total} repositories. ${data.results.find((result: { success: boolean }) => !result.success)?.error || "Check token permissions."}`
+          : `Daily GitHub Actions automation enabled for ${data.successCount} repositories.`,
+      });
+    } catch (error) {
+      setNotice({ tone: "error", text: error instanceof Error ? error.message : "Could not enable daily automation." });
+    } finally {
+      setIsInstallingAutomation(false);
+    }
   };
 
   // ── Repository selection ──────────────────────────────────────────────────
@@ -240,16 +338,15 @@ export default function Home() {
       const res  = await fetch("/api/commit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: token || undefined, repos: targets, filePath, commitMessage: customMessage, concurrency: 4 }),
+        body: JSON.stringify({ token: token || undefined, repos: targets, filePath: filePath || ".gitpulse/pulse.log", commitMessage: customMessage, concurrency: 4 }),
       });
       const data = await res.json();
       if (res.ok && Array.isArray(data.results)) {
         setRecentResults((prev) => [...data.results, ...prev]);
+        recordManualPulses(data.results);
         setSessionCommits((prev) => prev + (data.successCount ?? 0));
-        setTodayCommits((prev) => prev + (data.successCount ?? 0));
         setLastRunTime(new Date().toISOString());
-        fetchDailyStats();
-        setNotice({ tone: "success", text: `${data.successCount ?? 0} commit${data.successCount === 1 ? "" : "s"} completed successfully.` });
+        setNotice({ tone: data.failureCount ? "error" : "success", text: `${data.successCount ?? 0} commit${data.successCount === 1 ? "" : "s"} completed; ${data.failureCount ?? 0} failed.` });
       } else {
         setNotice({ tone: "error", text: data.error ?? "Batch commit failed." });
       }
@@ -269,13 +366,14 @@ export default function Home() {
         body: JSON.stringify({
           token: token || undefined,
           repos: [{ owner: targetRepo.owner.login, repo: targetRepo.name, branch: targetRepo.default_branch || "main" }],
-          filePath: ".github-pulse.md",
+          filePath: ".gitpulse/pulse.log",
           concurrency: 1,
         }),
       });
       const data = await res.json();
       if (res.ok && Array.isArray(data.results)) {
         setRecentResults((prev) => [...data.results, ...prev]);
+        recordManualPulses(data.results);
         setSessionCommits((prev) => prev + (data.successCount ?? 0));
         setLastRunTime(new Date().toISOString());
         setNotice({ tone: "success", text: `Test pulse sent to ${targetRepo.name}.` });
@@ -339,17 +437,19 @@ export default function Home() {
         <div className="page-content">
           {activeTab === "dashboard" && (
             <EclipseDashboard
-              scheduler={scheduler}
-              todayCommits={todayCommits}
+              todaySchedule={todaySchedule}
+              manualPulses={manualPulses}
+              automationCount={automatedRepos.size}
+              isInstallingAutomation={isInstallingAutomation}
+              onEnableAutomation={handleEnableAutomation}
+              todayCommits={automatedPulses.length + manualPulses.length}
+              automatedPulses={automatedPulses}
+              automationCheckError={automationCheckError}
               sessionCommits={sessionCommits}
               selectedCount={selectedRepoIds.size}
               totalRepos={repos.length}
-              onStop={stopForToday}
-              onStart={startForToday}
-              onPulse={() => handleTriggerBatchCommit(".github-pulse.md", undefined, true)}
-              onOpenConsole={() => setActiveTab("console")}
+              onPulse={() => handleTriggerBatchCommit(".gitpulse/pulse.log", undefined, true)}
               onOpenRepositories={() => setActiveTab("repos")}
-              stopping={stopping}
               isCommitting={isCommitting}
               notice={notice}
               onDismissNotice={dismissNotice}
@@ -378,7 +478,7 @@ export default function Home() {
             />
           )}
 
-          {activeTab === "deploy" && <VercelDeployGuide />}
+          {activeTab === "guide" && <AutomationGuide />}
         </div>
       </div>
 
@@ -386,9 +486,9 @@ export default function Home() {
       <TokenConfigModal
         isOpen={isTokenModalOpen}
         onClose={() => setIsTokenModalOpen(false)}
+        onDisconnect={handleDisconnect}
         onSaveToken={handleSaveToken}
         currentToken={token}
-        hasEnvToken={hasEnvToken}
       />
     </div>
   );

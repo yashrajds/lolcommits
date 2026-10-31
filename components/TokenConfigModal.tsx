@@ -7,7 +7,6 @@ import {
   X,
   ShieldAlert,
   CheckCircle2,
-  Lock,
   Eye,
   EyeOff,
 } from "lucide-react";
@@ -15,17 +14,17 @@ import {
 interface TokenConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onDisconnect: () => void;
   onSaveToken: (token: string) => Promise<boolean>;
   currentToken: string;
-  hasEnvToken: boolean;
 }
 
 export const TokenConfigModal: React.FC<TokenConfigModalProps> = ({
   isOpen,
   onClose,
+  onDisconnect,
   onSaveToken,
   currentToken,
-  hasEnvToken,
 }) => {
   const [inputToken, setInputToken] = useState(currentToken);
   const [showToken, setShowToken] = useState(false);
@@ -107,29 +106,16 @@ export const TokenConfigModal: React.FC<TokenConfigModalProps> = ({
               GitHub Connection
             </div>
             <div className="modal-subtitle">
-              Provide a Personal Access Token to commit safely across your repositories.
+              Use this same token to connect, make commits, and enable daily automation. You do not need a second token.
             </div>
           </div>
         </div>
-
-        {/* Env token notice */}
-        {hasEnvToken && (
-          <div
-            className="notice notice-info"
-            style={{ marginBottom: 16 }}
-          >
-            <Lock size={14} />
-            <span>
-              Found <code>GITHUB_TOKEN</code> configured in environment variables.
-            </span>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit}>
           {/* Token input */}
           <div className="input-group">
             <label className="label" htmlFor="github-token-input">
-              Personal Access Token (Classic or Fine-Grained)
+              One GitHub token
             </label>
             <div className="input-wrapper icon-right">
               <input
@@ -178,7 +164,7 @@ export const TokenConfigModal: React.FC<TokenConfigModalProps> = ({
                 fontSize: "0.82rem",
               }}
             >
-              Required Permissions
+              One token, two GitHub permissions
             </div>
             <ul
               style={{
@@ -189,26 +175,10 @@ export const TokenConfigModal: React.FC<TokenConfigModalProps> = ({
                 gap: 4,
               }}
             >
-              <li>
-                <strong>Classic Token</strong> — check the{" "}
-                <code
-                  style={{
-                    background: "rgba(255,255,255,0.08)",
-                    padding: "1px 4px",
-                    borderRadius: 3,
-                  }}
-                >
-                  repo
-                </code>{" "}
-                scope.
-              </li>
-              <li>
-                <strong>Fine-Grained Token</strong> — grant{" "}
-                <strong>Contents: Read and write</strong> on all repositories.
-              </li>
+              <li>Classic token: <code>repo</code> and <code>workflow</code>. Fine-grained token: <strong>Contents</strong> and <strong>Workflows</strong> set to Read and write for the selected repos.</li>
             </ul>
             <a
-              href="https://github.com/settings/tokens/new?scopes=repo&description=GitPulse-Vercel-AutoCommit"
+              href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=GitPulse"
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -220,7 +190,7 @@ export const TokenConfigModal: React.FC<TokenConfigModalProps> = ({
                 fontSize: "0.78rem",
               }}
             >
-              Generate Token on GitHub <ExternalLink size={11} />
+              Create the one token on GitHub <ExternalLink size={11} />
             </a>
           </div>
 
@@ -237,14 +207,12 @@ export const TokenConfigModal: React.FC<TokenConfigModalProps> = ({
 
           {/* Actions */}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={onClose}
-              disabled={testing}
-            >
-              Cancel
-            </button>
+            {currentToken && (
+              <button type="button" className="btn btn-secondary" onClick={onDisconnect} disabled={testing}>
+                Disconnect
+              </button>
+            )}
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={testing}>Cancel</button>
             <button
               type="submit"
               id="save-token-submit-btn"

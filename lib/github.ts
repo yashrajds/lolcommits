@@ -41,46 +41,6 @@ export interface CommitResult {
   durationMs: number;
 }
 
-const QUOTES = [
-  "Code never lies, comments sometimes do.",
-  "Simplicity is prerequisite for reliability.",
-  "Make it work, make it right, make it fast.",
-  "First, solve the problem. Then, write the code.",
-  "Clean code always looks like it was written by someone who cares.",
-  "Small daily improvements over time lead to stunning results.",
-  "Any fool can write code that a computer can understand. Good programmers write code that humans can understand.",
-  "Optimism is an occupational hazard of programming: testing is the treatment.",
-  "Consistent action creates consistent momentum.",
-  "Focus on progress, not perfection."
-];
-
-function getRandomQuote(): string {
-  return QUOTES[Math.floor(Math.random() * QUOTES.length)];
-}
-
-const COMMIT_MESSAGES = [
-  "chore(pulse): automated repository sync",
-  "chore: update activity tracker heartbeat",
-  "docs(sync): refresh repo pulse timestamp",
-  "chore(maintenance): automated health ping",
-  "docs: update maintenance log",
-  "chore: keep repository pulse active"
-];
-
-export function getRandomCommitMessage(): string {
-  return COMMIT_MESSAGES[Math.floor(Math.random() * COMMIT_MESSAGES.length)];
-}
-
-/**
- * Shuffles an array and picks a random subset between minCount and maxCount.
- */
-export function pickRandomSubset<T>(items: T[], minCount: number = 1, maxCount: number = 3): T[] {
-  if (!items || items.length === 0) return [];
-  const count = Math.min(items.length, Math.max(minCount, Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount));
-  const shuffled = [...items].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
-}
-
 /**
  * Validates token and returns authenticated GitHub user info.
  */
@@ -101,32 +61,6 @@ export async function getAuthenticatedUser(token: string): Promise<GitHubUser> {
   }
 
   const user = await res.json();
-
-  // If email is private/null, try to fetch verified primary email
-  if (!user.email) {
-    try {
-      const emailRes = await fetch("https://api.github.com/user/emails", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-          "User-Agent": "GitPulse-AutoCommit/1.0",
-        },
-        cache: "no-store",
-      });
-      if (emailRes.ok) {
-        const emails = await emailRes.json();
-        const primary = emails.find((e: any) => e.primary && e.verified);
-        if (primary) {
-          user.email = primary.email;
-        } else if (emails[0]?.email) {
-          user.email = emails[0].email;
-        }
-      }
-    } catch {
-      // Fallback to github no-reply email
-      user.email = `${user.id}+${user.login}@users.noreply.github.com`;
-    }
-  }
 
   if (!user.email) {
     user.email = `${user.id}+${user.login}@users.noreply.github.com`;
@@ -199,12 +133,10 @@ export async function commitHeartbeat(
   } = {}
 ): Promise<CommitResult> {
   const startTime = Date.now();
-  const filePath = options.filePath || ".github-pulse.md";
+  const filePath = options.filePath || ".gitpulse/pulse.log";
   const branch = options.branch || "main";
-  const commitMessage = options.commitMessage || getRandomCommitMessage();
-  const now = new Date();
-  const isoTime = now.toISOString();
-  const readableTime = now.toUTCString();
+  const commitMessage = options.commitMessage || "chore(gitpulse): record pulse";
+  const isoTime = new Date().toISOString();
 
   try {
     // 1. Check if the file already exists to obtain its SHA
@@ -237,18 +169,18 @@ export async function commitHeartbeat(
     }
 
     // 2. Prepare new heartbeat content
-    const quote = getRandomQuote();
-    const newEntry = `- ⚡ **Pulse Check**: \`${readableTime}\` | *"${quote}"*\n`;
+    const newEntry = `${isoTime} | ${owner}/${repo}\n`;
     
     let updatedContent: string;
     if (existingContent && existingContent.includes("## Heartbeat Log")) {
-      // Prepend entry under Heartbeat Log header (keep last 30 entries)
       const parts = existingContent.split("## Heartbeat Log\n");
       const header = parts[0] + "## Heartbeat Log\n";
       const oldEntries = parts[1] ? parts[1].trim().split("\n").slice(0, 29).join("\n") : "";
       updatedContent = `${header}${newEntry}${oldEntries ? oldEntries + "\n" : ""}`;
+    } else if (existingContent) {
+      updatedContent = `${existingContent.trimEnd()}\n${newEntry}`;
     } else {
-      updatedContent = `# ⚡ GitPulse Activity Tracker\n\nAutomated repository pulse log managed by [GitPulse](https://github.com).\n\n## Repository\n- **Target**: \`${owner}/${repo}\`\n- **Branch**: \`${branch}\`\n- **Tracking Started**: \`${readableTime}\`\n\n## Heartbeat Log\n${newEntry}`;
+      updatedContent = `# GitPulse activity log\n${newEntry}`;
     }
 
     const base64Content = Buffer.from(updatedContent, "utf-8").toString("base64");

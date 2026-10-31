@@ -1,118 +1,18 @@
-# GitHub Personal Access Token (PAT) Setup Guide for GitPulse
+# GitHub token setup
 
-## Step 1: Generate a PAT (Personal Access Token)
+GitPulse uses one token supplied by each user. It keeps that token in the browser and sends it to GitHub only for the requested action. It is not saved in Vercel environment variables or by the automation workflow.
 
-### Option A: Fine-Grained Token (Recommended)
-1. Go to: https://github.com/settings/tokens/new
-2. **Token name**: `GitPulse-AutoCommit`
-3. **Expiration**: Select preferred duration (or "No expiration")
-4. **Resource owner**: Select your user account
-5. **Repository access**: 
-   - Select "Only select repositories" 
-   - Or select all repositories
-6. **Permissions**: Select `Contents: Read and write`
-7. Click **Generate token**
-8. **Copy the generated token** immediately - GitHub won't show it again
+## Create one token
 
-### Option B: Classic Token (Also Works)
-1. Go to: https://github.com/settings/tokens
-2. Click **Generate new token** → **Generate new token (classic)**
-3. **Note**: `GitPulse-AutoCommit`
-4. **Expiration**: Set preferred duration
-5. **Select scopes**: Check `repo` (Full control of private and public repositories)
-6. Click **Generate token**
-7. **Copy the generated token** immediately
+1. Open [GitHub's preconfigured classic token form](https://github.com/settings/tokens/new?scopes=repo,workflow&description=GitPulse). It selects the two scopes GitPulse needs.
+2. Generate that single token and paste it into GitPulse Config.
 
-## Step 2: Configure Environment Variables
+GitHub requires `repo` access for commits and `workflow` access for adding the scheduled workflow file. The same token is used for both; there are no separate tokens or Vercel secrets.
 
-Create/update `.env.local` in the project root:
+## Enable scheduled commits
 
-```env
-# Required: Your GitHub PAT
-GITHUB_TOKEN=ghp_yourPersonalAccessTokenHere
+After connecting, select repositories and choose **Enable for selected repos** on the dashboard. GitPulse installs or updates one workflow file per repository. Each workflow makes one commit per day at an independently randomized hour between 09:00 and 21:00 IST, using a short-lived token scoped to that repository.
 
-# Required: Cron secret for Vercel webhook verification
-CRON_SECRET=super_secret_passphrase_here
+To stop a repository's schedule, remove `.github/workflows/gitpulse.yml` from that repository. Disconnecting GitPulse only removes the token from the current browser.
 
-# Optional: Dashboard password
-SITE_PASSWORD=choose_a_long_unique_password
-
-# Optional: Batch size per run
-COMMIT_BATCH_SIZE=10
-
-# Optional: Exclude forks
-EXCLUDE_FORKS=true
-```
-
-## Step 3: Run the Automation
-
-### Local Development - Scheduler (automatic daily pulses):
-```bash
-# Start the scheduler daemon
-node scripts/pulse-daemon.mjs
-# Or using npm:
-npm run scheduler
-```
-
-This will:
-- Start the GitPulse scheduler for today
-- Schedule 1-13 commits between 9AM-9PM IST
-- Keep running and manage scheduler state
-- Output status every minute
-
-### Local Development - Manual Pulse:
-```bash
-# Commit a pulse to all repositories
-node scripts/run-pulse.mjs
-
-# Or target specific repos
-node scripts/run-pulse.mjs --repos owner/repo1,owner/repo2
-
-# With custom concurrency
-node scripts/run-pulse.mjs --concurrency 3
-```
-
-### Using the Web Dashboard:
-```bash
-npm run dev
-# Open http://localhost:3000
-# Connect your GitHub token and manage pulses via UI
-```
-
-### Vercel Deployment (for always-on automation):
-1. Push this project to GitHub
-2. Import to Vercel at https://vercel.com/new
-3. Set environment variables in Vercel dashboard:
-   - `GITHUB_TOKEN` - your PAT
-   - `CRON_SECRET` - matching the secret in `.env.local`
-4. Vercel will automatically deploy and configure the cron jobs from `vercel.json`:
-   - Daily at 3:30 UTC: triggers `/api/schedule?action=start`
-   - Daily at 6:29 UTC: triggers `/api/cleanup`
-
-## Step 4: Test the Setup
-
-### Test the scheduler:
-```bash
-node scripts/pulse-daemon.mjs
-# Expected output:
-# GitPulse scheduler daemon starting...
-# IST Time: <current date>
-# Scheduler enabled: true
-# Commits scheduled: <number>
-```
-
-### Test a manual pulse:
-```bash
-node scripts/run-pulse.mjs
-# If no GITHUB_TOKEN set, will error: "ERROR: Missing GITHUB_TOKEN environment variable."
-# After setting token, it will pulse your repositories
-```
-
-## Important Notes
-
-1. **Token Scope**: The `repo` scope (classic) or `Contents: Read and write` (fine-grained) is required
-2. **Rate Limits**: GitHub API rate limits apply (typically 5,000/hour for authenticated users)
-3. **Contribution Graph**: Commits count toward your GitHub contribution graph if:
-   - Email matches a verified email on your GitHub account
-   - Commits are to the repository's default branch (usually `main` or `master`)
-4. **Vercel Cron**: The `vercel.json` is pre-configured with crons at `30 3 * * *` and `29 18 * * *` (IST 7:30 PM and 6:29 AM next day)
+For a manually triggered commit, the connected token needs **Contents: Read and write** access to the target repository.

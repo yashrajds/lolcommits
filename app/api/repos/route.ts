@@ -4,7 +4,7 @@ import { listUserRepositories } from "@/lib/github";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const token = body.token || process.env.GITHUB_TOKEN;
+    const token = typeof body.token === "string" ? body.token.trim() : "";
 
     if (!token) {
       return NextResponse.json(

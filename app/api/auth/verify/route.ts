@@ -4,7 +4,7 @@ import { getAuthenticatedUser } from "@/lib/github";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const token = body.token || process.env.GITHUB_TOKEN;
+    const token = typeof body.token === "string" ? body.token.trim() : "";
 
     if (!token) {
       return NextResponse.json(
@@ -17,7 +17,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       valid: true,
       user,
-      hasEnvToken: Boolean(process.env.GITHUB_TOKEN),
     });
   } catch (error: any) {
     return NextResponse.json(

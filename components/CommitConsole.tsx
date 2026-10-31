@@ -31,7 +31,7 @@ export const CommitConsole: React.FC<CommitConsoleProps> = ({
   recentResults,
   lastRunTime,
 }) => {
-  const [filePath, setFilePath] = useState(".github-pulse.md");
+  const [filePath, setFilePath] = useState(".gitpulse/pulse.log");
   const [customMessage, setCustomMessage] = useState("");
   const terminalRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +45,7 @@ export const CommitConsole: React.FC<CommitConsoleProps> = ({
   const handleRun = (randomize: boolean = false) => {
     if (selectedCount === 0) return;
     onTriggerBatchCommit(
-      filePath.trim() || ".github-pulse.md",
+      filePath.trim() || ".gitpulse/pulse.log",
       customMessage.trim() || undefined,
       randomize
     );
@@ -123,7 +123,7 @@ export const CommitConsole: React.FC<CommitConsoleProps> = ({
               className="input input-mono"
               value={filePath}
               onChange={(e) => setFilePath(e.target.value)}
-              placeholder=".github-pulse.md"
+              placeholder=".gitpulse/pulse.log"
             />
             <span className="input-hint">
               Safe, non-destructive file updated on each repo&apos;s default branch.
