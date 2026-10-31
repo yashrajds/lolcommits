@@ -1,37 +1,38 @@
-# GitPulse
+# 🤙 lolcommits
 
-GitPulse connects to GitHub with a token entered by each user. It lists repositories, makes manual pulse commits, and can install a daily GitHub Actions workflow in selected repositories. The token stays in the user's browser; GitPulse does not require Vercel environment secrets.
+> Keep your GitHub contribution graph green — automatically.
 
-## Use it
+A zero-dependency, pure HTML/CSS/JS website that makes random daily GitHub commits on your behalf using the GitHub Contents API.
 
-1. Open the dashboard and connect a GitHub personal access token.
-2. Select repositories.
-3. Choose **Enable for selected repos** to install daily automation.
+## Features
 
-Daily workflows run once per enabled repository at an independently randomized hour between 09:00 and 21:00 India Standard Time. The selected hour changes daily. They use GitHub's short-lived, repository-scoped `GITHUB_TOKEN` and do not need a saved PAT after installation. Each workflow appends a timestamp to `.gitpulse/pulse.log` on the repository's default branch.
+| Feature | Description |
+|---|---|
+| 🔑 Token setup | Paste your GitHub PAT once — stored in `localStorage` |
+| ⏰ Auto-commit | Schedules N random commits per day inside your chosen time window |
+| 🧪 Test commit | One-click to verify your token & repo are working |
+| ✍️ Manual commit | Custom message commit with a modal dialog |
+| 📋 Today's log | Live list of all commits made today (auto / manual / test) |
 
-## Token permissions
+## Usage
 
-- Fine-grained PAT: repository access to the selected repositories, with **Contents: Read and write** and **Workflows: Read and write**.
-- Classic PAT: `repo` and `workflow` scopes.
+1. Open `index.html` in any browser (no server needed).
+2. Paste a GitHub **Personal Access Token** with `repo` scope.
+3. Enter your **repo owner**, **repo name**, and **branch**.
+4. Configure your daily commit window & message pool.
+5. Toggle **Enable auto-commit** — done!
 
-The extra workflow permission is needed only to create or update `.github/workflows/gitpulse.yml`. GitHub's [Contents API documentation](https://docs.github.com/en/rest/repos/contents) describes these requirements.
+## How it works
 
-## Local development
+- All commits touch a single file `.lolcommits` in your repo root with a timestamp + random salt.
+- The scheduler picks `N` random timestamps between your `startHour` and `endHour` using `setTimeout`.
+- Commits survive a page refresh because scheduled times are saved to `localStorage` — but **re-enable auto-commit after page reload** to re-arm the timers.
 
-```bash
-npm install
-npm run dev
-```
+## Keeping it running
 
-No `.env.local` file is required. Each user connects their own token through the dashboard.
+Since this is a browser tab, the page must stay open for auto-commits to fire.
+For fully headless commits consider a GitHub Action cron instead — but this tool is perfect for keeping a tab running on a work machine.
 
-## Hosting
+## No tracking. No server. No dependencies.
 
-Deploy the Next.js app to Vercel or another Next.js host. No cron, site password, shared GitHub token, or cron secret is required. Scheduled work runs from each repository's GitHub Actions workflow.
-
-## Notes
-
-- Removing the token from the browser does not remove workflows already installed in repositories. Delete `.github/workflows/gitpulse.yml` in each repository to stop its schedule.
-- GitHub scheduled workflows run from the repository's default branch and may start later than the scheduled minute during high load.
-- GitHub attributes commits to a profile when the author email is associated with the account and the commit reaches the default branch. GitPulse uses the account's GitHub no-reply address when no public email is available. See [GitHub contribution criteria](https://docs.github.com/en/account-and-profile/reference/profile-contributions-reference).
+Everything runs locally in the browser.  Your token never leaves your machine.

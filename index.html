@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lolcommits — daily auto-commits</title>
+  <meta name="description" content="Automatically make random daily GitHub commits to keep your contribution graph green." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ────────────────── HEADER ────────────────── -->
+  <header class="header">
+    <div class="logo">
+      <span class="logo-icon">🤙</span>
+      <span class="logo-text">lolcommits</span>
+    </div>
+    <div class="status-pill" id="statusPill">
+      <span class="status-dot idle"></span>
+      <span id="statusText">idle</span>
+    </div>
+  </header>
+
+  <!-- ────────────────── MAIN ────────────────── -->
+  <main class="main">
+
+    <!-- TOKEN SECTION -->
+    <section class="card" id="tokenSection">
+      <div class="card-header">
+        <h2>🔑 GitHub Token</h2>
+        <p class="subtitle">Personal access token with <code>repo</code> scope</p>
+      </div>
+
+      <div class="token-row">
+        <div class="input-wrapper">
+          <input
+            type="password"
+            id="tokenInput"
+            class="token-input"
+            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="eye-btn" id="eyeBtn" title="Show/hide token">👁</button>
+        </div>
+        <button class="btn btn-primary" id="saveTokenBtn">Save Token</button>
+      </div>
+
+      <div class="repo-row">
+        <div class="input-group">
+          <label for="repoOwner">Owner / Username</label>
+          <input type="text" id="repoOwner" placeholder="octocat" />
+        </div>
+        <div class="input-group">
+          <label for="repoName">Repository</label>
+          <input type="text" id="repoName" placeholder="my-repo" />
+        </div>
+        <div class="input-group">
+          <label for="branchName">Branch</label>
+          <input type="text" id="branchName" placeholder="main" value="main" />
+        </div>
+      </div>
+
+      <div id="tokenStatus" class="token-status hidden"></div>
+    </section>
+
+    <!-- AUTO-COMMIT SETTINGS -->
+    <section class="card" id="settingsSection">
+      <div class="card-header">
+        <h2>⏰ Auto-Commit Schedule</h2>
+        <p class="subtitle">Commits happen at random times within the window you set</p>
+      </div>
+
+      <div class="settings-grid">
+        <div class="input-group">
+          <label for="minCommits">Min commits / day</label>
+          <input type="number" id="minCommits" value="1" min="1" max="20" />
+        </div>
+        <div class="input-group">
+          <label for="maxCommits">Max commits / day</label>
+          <input type="number" id="maxCommits" value="5" min="1" max="20" />
+        </div>
+        <div class="input-group">
+          <label for="startHour">Start hour (24h)</label>
+          <input type="number" id="startHour" value="9" min="0" max="23" />
+        </div>
+        <div class="input-group">
+          <label for="endHour">End hour (24h)</label>
+          <input type="number" id="endHour" value="22" min="0" max="23" />
+        </div>
+      </div>
+
+      <div class="message-group">
+        <label for="commitMessages">Commit messages (one per line)</label>
+        <textarea id="commitMessages" rows="5" placeholder="Update README&#10;fix typo&#10;refactor code&#10;add documentation&#10;minor improvements&#10;cleanup&#10;style tweaks">Update README
+fix typo
+refactor code
+add documentation
+minor improvements
+cleanup
+style tweaks
+update configs
+bump version
+resolve conflicts</textarea>
+      </div>
+
+      <div class="toggle-row">
+        <label class="toggle-label" for="autoToggle">
+          <input type="checkbox" id="autoToggle" />
+          <span class="toggle-track">
+            <span class="toggle-thumb"></span>
+          </span>
+          <span>Enable auto-commit</span>
+        </label>
+        <span class="next-commit-badge hidden" id="nextCommitBadge">Next: <strong id="nextCommitTime">—</strong></span>
+      </div>
+    </section>
+
+    <!-- ACTION BUTTONS -->
+    <section class="actions-bar">
+      <button class="btn btn-accent" id="testCommitBtn">
+        <span>🧪</span> Test Commit Now
+      </button>
+      <button class="btn btn-manual" id="manualCommitBtn">
+        <span>✍️</span> Manual Commit
+      </button>
+    </section>
+
+    <!-- MANUAL COMMIT MODAL -->
+    <div class="modal-backdrop hidden" id="manualModal">
+      <div class="modal">
+        <h3>✍️ Manual Commit</h3>
+        <div class="input-group">
+          <label for="manualMessage">Commit message</label>
+          <input type="text" id="manualMessage" placeholder="your commit message here" />
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="cancelManualBtn">Cancel</button>
+          <button class="btn btn-primary" id="confirmManualBtn">Commit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TODAY'S COMMITS -->
+    <section class="card" id="commitsSection">
+      <div class="card-header commits-header">
+        <div>
+          <h2>📋 Today's Commits</h2>
+          <p class="subtitle" id="commitsDate"></p>
+        </div>
+        <div class="commits-meta">
+          <span class="count-badge" id="commitCount">0</span>
+          <button class="btn btn-ghost btn-sm" id="refreshCommitsBtn">↺ Refresh</button>
+        </div>
+      </div>
+
+      <div id="commitsList" class="commits-list">
+        <div class="empty-state">
+          <span>🌱</span>
+          <p>No commits yet today — save your token &amp; repo to get started!</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- TOAST -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
